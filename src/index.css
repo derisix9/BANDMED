@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+:root {
+  --primary-navy: #0B1F3A;
+  --primary-navy-dark: #000615;
+  --secondary-wine: #7A0C0C;
+  --secondary-crimson: #AC332B;
+  --bg-academic: #F8F9FF;
+  --surface-white: #FFFFFF;
+  --surface-low: #EFF4FF;
+  --surface-container: #E5EEFF;
+  --text-main: #0B1C30;
+  --text-muted: #44474D;
+  --border-subtle: #D3E4FE;
+
+  /* Bootstrap 5 Theme Overrides */
+  --bs-primary: #0B1F3A;
+  --bs-primary-rgb: 11, 31, 58;
+  --bs-secondary: #AC332B;
+  --bs-secondary-rgb: 172, 51, 43;
+  --bs-danger: #7A0C0C;
+  --bs-danger-rgb: 122, 12, 12;
+  --bs-body-font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: var(--bg-academic);
+  color: var(--text-main);
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6, .font-headline {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+}
+
+/* Material Symbols alignment */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+  line-height: 1;
+  display: inline-block;
+}
+
+.material-symbols-outlined.fill-1 {
+  font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(11, 31, 58, 0.04);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(11, 31, 58, 0.2);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(11, 31, 58, 0.35);
+}
+
+/* Bootstrap Button Specific Overrides */
+.btn-primary {
+  background-color: #0B1F3A !important;
+  border-color: #0B1F3A !important;
+  color: #FFFFFF !important;
+}
+.btn-primary:hover, .btn-primary:focus {
+  background-color: #05101E !important;
+  border-color: #05101E !important;
+}
+.btn-wine, .btn-danger {
+  background-color: #7A0C0C !important;
+  border-color: #7A0C0C !important;
+  color: #FFFFFF !important;
+}
+.btn-wine:hover, .btn-danger:hover {
+  background-color: #5E0909 !important;
+  border-color: #5E0909 !important;
+}
+.btn-outline-primary {
+  color: #0B1F3A !important;
+  border-color: #0B1F3A !important;
+}
+.btn-outline-primary:hover {
+  background-color: #0B1F3A !important;
+  color: #FFFFFF !important;
+}
+
+/* Table styling helpers */
+.table-responsive {
+  border-radius: 0.5rem;
+}

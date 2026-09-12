@@ -18,7 +18,8 @@ export interface AttachedDocument {
   size: number;
   type: string;
   dataUrl: string;
-  uploadedAt: string;
+  uploadedAt?: string;
+  uploadDate?: string;
 }
 
 export interface Student {

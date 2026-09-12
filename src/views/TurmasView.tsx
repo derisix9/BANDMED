@@ -11,6 +11,8 @@ import {
   isUpperLevelGrade
 } from '../utils/educationSubsystems';
 import { SearchableSelect, SearchableOption } from '../components/SearchableSelect';
+import { AsyncButton } from '../components/AsyncButton';
+import { FormModalHeader } from '../components/FormModalHeader';
 
 interface TurmasViewProps {
   db: SchoolDatabase;
@@ -922,9 +924,26 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
 
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-[#0b1f3a] text-white flex items-center justify-center font-bold text-[9px] shrink-0">
-                                {(cls.headTeacherName || 'DT').split(' ').slice(0, 2).map((w) => w[0]).join('')}
-                              </div>
+                              {(() => {
+                                const ht = teachersList.find(
+                                  (t) => t.id === cls.headTeacherId || t.name === cls.headTeacherName
+                                );
+                                if (ht?.avatar) {
+                                  return (
+                                    <img
+                                      src={ht.avatar}
+                                      alt={cls.headTeacherName || 'DT'}
+                                      className="w-6 h-6 rounded-full object-cover border border-slate-300 shrink-0"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  );
+                                }
+                                return (
+                                  <div className="w-6 h-6 rounded-full bg-[#0b1f3a] text-white flex items-center justify-center font-bold text-[9px] shrink-0">
+                                    {(cls.headTeacherName || 'DT').split(' ').slice(0, 2).map((w) => w[0]).join('')}
+                                  </div>
+                                );
+                              })()}
                               <span className="font-medium text-slate-800 truncate max-w-[150px]">
                                 {cls.headTeacherName || 'A designar'}
                               </span>
@@ -1318,9 +1337,33 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                           </td>
                           <td className="py-3.5 px-4">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-[#0b1f3a] text-white flex items-center justify-center font-bold text-[9px] shrink-0">
-                                {avatarInitials}
-                              </div>
+                              {(() => {
+                                const coordTeacher = teachersList.find(
+                                  (t) => t.name === sub.coordinatorName
+                                );
+                                const photo =
+                                  coordTeacher?.avatar ||
+                                  (sub.coordinatorAvatar &&
+                                  (sub.coordinatorAvatar.startsWith('http') ||
+                                    sub.coordinatorAvatar.startsWith('data:'))
+                                    ? sub.coordinatorAvatar
+                                    : null);
+                                if (photo) {
+                                  return (
+                                    <img
+                                      src={photo}
+                                      alt={sub.coordinatorName || 'DC'}
+                                      className="w-6 h-6 rounded-full object-cover border border-slate-300 shrink-0"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  );
+                                }
+                                return (
+                                  <div className="w-6 h-6 rounded-full bg-[#0b1f3a] text-white flex items-center justify-center font-bold text-[9px] shrink-0">
+                                    {avatarInitials}
+                                  </div>
+                                );
+                              })()}
                               <span className="font-medium text-slate-800">
                                 {sub.coordinatorName || 'Prof. Coordenador'}
                               </span>
@@ -1445,70 +1488,65 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       {/* ========================================================================= */}
       {showSalasModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 flex flex-col gap-4 max-h-[85vh] overflow-y-auto border border-slate-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#0b1f3a] text-[24px]">meeting_room</span>
-                <h3 className="font-headline text-lg font-bold text-slate-900">Mapa de Ocupação Real de Salas</h3>
+          <div className="bg-white w-full max-w-2xl rounded-none shadow-2xl overflow-hidden border border-slate-400 max-h-[85vh] flex flex-col">
+            <FormModalHeader
+              title="Mapa de Ocupação Real de Salas"
+              subtitle="Distribuição física calculada a partir de todas as turmas cadastradas"
+              icon="meeting_room"
+              onClose={() => setShowSalasModal(false)}
+            />
+
+            <div className="p-6 flex flex-col gap-4 overflow-y-auto">
+              <p className="text-xs text-slate-500">
+                Distribuição física calculada a partir de todas as turmas cadastradas na base de dados para o turno matutino e vespertino.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                {realRooms.map((room, idx) => {
+                  const isOccupiedMorning = Boolean(room.morningClass);
+                  const isOccupiedAfternoon = Boolean(room.afternoonClass);
+                  return (
+                    <div key={idx} className="p-3.5 bg-slate-50 border border-slate-200 flex flex-col gap-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-slate-900">{room.name}</span>
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full ${
+                            isOccupiedMorning && isOccupiedAfternoon
+                              ? 'bg-[#ac332b]'
+                              : isOccupiedMorning || isOccupiedAfternoon
+                              ? 'bg-amber-500'
+                              : 'bg-emerald-500'
+                          }`}
+                          title={
+                            isOccupiedMorning && isOccupiedAfternoon
+                              ? 'Ocupada Manhã e Tarde'
+                              : isOccupiedMorning
+                              ? 'Ocupada na Manhã'
+                              : isOccupiedAfternoon
+                              ? 'Ocupada na Tarde'
+                              : 'Disponível'
+                          }
+                        />
+                      </div>
+                      <span className="text-[11px] text-slate-500">Capacidade: {room.capacity} Lugares</span>
+                      <div className="text-[11px] text-slate-700 flex flex-col gap-0.5">
+                        <span>Manhã: <strong>{room.morningClass?.name || 'Livre'}</strong></span>
+                        <span>Tarde: <strong>{room.afternoonClass?.name || 'Livre'}</strong></span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <button
-                onClick={() => setShowSalasModal(false)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-900 transition-colors"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
 
-            <p className="text-xs text-slate-500">
-              Distribuição física calculada a partir de todas as turmas cadastradas na base de dados para o turno matutino e vespertino.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-              {realRooms.map((room, idx) => {
-                const isOccupiedMorning = Boolean(room.morningClass);
-                const isOccupiedAfternoon = Boolean(room.afternoonClass);
-                return (
-                  <div key={idx} className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 flex flex-col gap-1.5">
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-slate-900">{room.name}</span>
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full ${
-                          isOccupiedMorning && isOccupiedAfternoon
-                            ? 'bg-[#ac332b]'
-                            : isOccupiedMorning || isOccupiedAfternoon
-                            ? 'bg-amber-500'
-                            : 'bg-emerald-500'
-                        }`}
-                        title={
-                          isOccupiedMorning && isOccupiedAfternoon
-                            ? 'Ocupada Manhã e Tarde'
-                            : isOccupiedMorning
-                            ? 'Ocupada na Manhã'
-                            : isOccupiedAfternoon
-                            ? 'Ocupada na Tarde'
-                            : 'Disponível'
-                        }
-                      />
-                    </div>
-                    <span className="text-[11px] text-slate-500">Capacidade: {room.capacity} Lugares</span>
-                    <div className="text-[11px] text-slate-700 flex flex-col gap-0.5">
-                      <span>Manhã: <strong>{room.morningClass?.name || 'Livre'}</strong></span>
-                      <span>Tarde: <strong>{room.afternoonClass?.name || 'Livre'}</strong></span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="flex justify-end pt-3 border-t border-slate-100">
-              <button
-                onClick={() => setShowSalasModal(false)}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-800 font-bold text-xs transition-all duration-200 cursor-pointer"
-                type="button"
-              >
-                Fechar Resumo
-              </button>
+              <div className="flex justify-end pt-3 border-t border-slate-200">
+                <button
+                  onClick={() => setShowSalasModal(false)}
+                  className="px-4 py-2 rounded-none bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold text-xs transition-colors cursor-pointer"
+                  type="button"
+                >
+                  Fechar Resumo
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1519,25 +1557,23 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       {/* ========================================================================= */}
       {showNovaTurmaModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 border border-slate-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#0b1f3a] text-[22px]">group_add</span>
-                <h3 className="font-headline text-lg font-bold text-slate-900">Criar Nova Turma</h3>
-              </div>
-              <button
-                onClick={() => setShowNovaTurmaModal(false)}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
+          <div className="bg-white w-full max-w-lg rounded-none shadow-2xl overflow-hidden border border-slate-400 max-h-[90vh] flex flex-col">
+            <FormModalHeader
+              title="Criar Nova Turma"
+              subtitle="Registo de turma e atribuição de director de turma"
+              icon="group_add"
+              onClose={() => setShowNovaTurmaModal(false)}
+            />
 
-            <form onSubmit={handleCreateClass} className="mt-4 space-y-4 text-xs">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+              }}
+              className="p-6 space-y-4 text-xs overflow-y-auto"
+            >
               <div>
                 <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Nome Oficial da Turma
+                  Nome Oficial da Turma <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1545,7 +1581,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   value={newClassName}
                   onChange={(e) => setNewClassName(e.target.value)}
                   placeholder="ex: 10ª Classe • Turma A"
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-semibold"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-semibold text-slate-800"
                 />
               </div>
 
@@ -1560,7 +1596,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                       const selectedG = e.target.value;
                       setNewClassGrade(selectedG);
                     }}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-semibold"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-semibold text-slate-800"
                   >
                     {activeSubsystems.map((sub) => (
                       <optgroup key={sub.id} label={`${sub.fullName}`}>
@@ -1588,7 +1624,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                       setNewClassName(generateSuggestedClassName(newClassGrade, sec, newClassArea));
                     }}
                     placeholder="ex: A, B, C..."
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs text-slate-800"
                   />
                 </div>
               </div>
@@ -1640,7 +1676,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   <select
                     value={newClassShift}
                     onChange={(e) => setNewClassShift(e.target.value as any)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs text-slate-800"
                   >
                     <option value="Manhã">Manhã (07:30 - 12:30)</option>
                     <option value="Tarde">Tarde (13:00 - 18:00)</option>
@@ -1658,7 +1694,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     value={newClassRoom}
                     onChange={(e) => setNewClassRoom(e.target.value)}
                     placeholder="ex: Sala B-104"
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs text-slate-800"
                   />
                 </div>
               </div>
@@ -1674,7 +1710,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   required
                   value={newClassCapacity}
                   onChange={(e) => setNewClassCapacity(Number(e.target.value))}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs text-slate-800"
                 />
               </div>
 
@@ -1705,20 +1741,44 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowNovaTurmaModal(false)}
-                  className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold active:scale-[0.98] transition-all duration-200 cursor-pointer"
+                  className="px-4 py-2 rounded-none bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs border border-slate-300 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] active:scale-[0.98] text-white font-bold shadow-md transition-all duration-200 cursor-pointer"
+                <AsyncButton
+                  type="button"
+                  variant="primary"
+                  icon="save"
+                  loadingText="A gravar turma..."
+                  successText="Turma Gravada com Sucesso!"
+                  onAsyncClick={async () => {
+                    if (!newClassName.trim()) return;
+                    const teacherObj = teachersList.find((t) => t.id === newClassHeadTeacherId) || teachersList[0];
+                    const resolvedCycle = getCycleForGrade(newClassGrade);
+                    dbService.addClass({
+                      name: newClassName.trim(),
+                      grade: newClassGrade,
+                      section: newClassSection.trim().toUpperCase(),
+                      cycle: resolvedCycle,
+                      area: newClassArea,
+                      shift: newClassShift,
+                      room: newClassRoom.trim(),
+                      studentCount: 0,
+                      maxCapacity: Number(newClassCapacity) || 30,
+                      headTeacherId: teacherObj ? teacherObj.id : '',
+                      headTeacherName: teacherObj ? teacherObj.name : 'A designar',
+                      delegateName: newClassDelegate.trim() || 'A eleger pela turma',
+                      academicYear: db.settings?.currentAcademicYear || '2024/2025'
+                    });
+                  }}
+                  onSuccessComplete={() => setShowNovaTurmaModal(false)}
                 >
                   Gravar Turma na Base de Dados
-                </button>
+                </AsyncButton>
               </div>
             </form>
           </div>
@@ -1730,24 +1790,18 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       {/* ========================================================================= */}
       {showNovoCursoModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 border border-slate-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#0b1f3a] text-[22px]">school</span>
-                <h3 className="font-headline text-lg font-bold text-slate-900">
-                  Criar Novo Curso (10.ª Classe ao Superior)
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowNovoCursoModal(false)}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
+          <div className="bg-white w-full max-w-lg rounded-none shadow-2xl overflow-hidden border border-slate-400 max-h-[90vh] flex flex-col">
+            <FormModalHeader
+              title="Criar Novo Curso"
+              subtitle="10.ª Classe ao Ensino Superior"
+              icon="school"
+              onClose={() => setShowNovoCursoModal(false)}
+            />
 
-            <form onSubmit={handleCreateCourse} className="mt-4 space-y-4 text-xs">
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              className="p-6 space-y-4 text-xs overflow-y-auto"
+            >
               <div>
                 <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Designação Oficial do Curso <span className="text-red-500">*</span>
@@ -1758,7 +1812,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   value={newCourseName}
                   onChange={(e) => handleCourseNameChange(e.target.value)}
                   placeholder="ex: Ciências Físicas e Biológicas, Técnico de Informática..."
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-semibold"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-semibold text-slate-800"
                 />
               </div>
 
@@ -1773,7 +1827,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     value={newCourseCode}
                     onChange={(e) => setNewCourseCode(e.target.value.toUpperCase())}
                     placeholder="ex: CFB, TINF, DIR"
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-mono font-bold"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-mono font-bold text-slate-800"
                   />
                 </div>
 
@@ -1784,7 +1838,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   <select
                     value={newCourseLevel}
                     onChange={(e) => setNewCourseLevel(e.target.value as any)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-semibold"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-semibold text-slate-800"
                   >
                     <option value="secundario_2">II Ciclo / Ensino Médio (10ª - 13ª)</option>
                     <option value="superior">Ensino Superior (Licenciatura/Bacharelato)</option>
@@ -1803,7 +1857,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   required
                   value={newCourseDuration}
                   onChange={(e) => setNewCourseDuration(Number(e.target.value))}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-mono font-bold"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-mono font-bold text-slate-800"
                 />
               </div>
 
@@ -1828,24 +1882,46 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   value={newCourseDescription}
                   onChange={(e) => setNewCourseDescription(e.target.value)}
                   placeholder="Objetivos pedagógicos, competências e saídas profissionais do curso..."
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs text-slate-800"
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowNovoCursoModal(false)}
-                  className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold active:scale-[0.98] transition-all duration-200 cursor-pointer"
+                  className="px-4 py-2 rounded-none bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs border border-slate-300 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] active:scale-[0.98] text-white font-bold shadow-md transition-all duration-200 cursor-pointer"
+                <AsyncButton
+                  type="button"
+                  variant="primary"
+                  icon="school"
+                  loadingText="A registar curso..."
+                  successText="Curso Registado com Sucesso!"
+                  onAsyncClick={async () => {
+                    if (!newCourseName.trim() || !newCourseCode.trim()) return;
+                    const cycleLabel =
+                      newCourseLevel === 'superior' ? 'Ensino Superior' : 'II Ciclo / Ensino Médio';
+                    dbService.addCourse({
+                      name: newCourseName.trim(),
+                      code: newCourseCode.trim().toUpperCase(),
+                      level: newCourseLevel,
+                      cycle: cycleLabel,
+                      durationYears: Number(newCourseDuration) || 3,
+                      coordinatorName: newCourseCoordinator || 'A designar',
+                      description: newCourseDescription.trim() || 'Curso Técnico-Profissional e Académico oficial',
+                      status: 'ativo'
+                    });
+                    setNewCourseName('');
+                    setNewCourseCode('');
+                    setNewCourseDescription('');
+                  }}
+                  onSuccessComplete={() => setShowNovoCursoModal(false)}
                 >
                   Registar Curso
-                </button>
+                </AsyncButton>
               </div>
             </form>
           </div>
@@ -1857,22 +1933,18 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       {/* ========================================================================= */}
       {showNovaDisciplinaModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 border border-slate-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#0b1f3a] text-[22px]">library_add</span>
-                <h3 className="font-headline text-lg font-bold text-slate-900">Adicionar Unidade Curricular</h3>
-              </div>
-              <button
-                onClick={() => setShowNovaDisciplinaModal(false)}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
+          <div className="bg-white w-full max-w-lg rounded-none shadow-2xl overflow-hidden border border-slate-400 max-h-[90vh] flex flex-col">
+            <FormModalHeader
+              title="Adicionar Unidade Curricular"
+              subtitle="Geração automática de código e vinculação de docente"
+              icon="library_add"
+              onClose={() => setShowNovaDisciplinaModal(false)}
+            />
 
-            <form onSubmit={handleCreateSubject} className="mt-4 space-y-4 text-xs">
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              className="p-6 space-y-4 text-xs overflow-y-auto"
+            >
               {/* Nome da disciplina que dispara geração automática de código */}
               <div>
                 <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
@@ -1884,7 +1956,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   value={newSubName}
                   onChange={(e) => handleDisciplineNameChange(e.target.value)}
                   placeholder="ex: Matemática, Física, Biologia, Língua Portuguesa..."
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-semibold"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-semibold text-slate-800"
                 />
                 <span className="text-[10px] text-slate-400 mt-1 block">
                   Ao digitar o nome, o código correspondente é gerado automaticamente (ex: MAT01, MAT02...).
@@ -1903,7 +1975,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     value={newSubCode}
                     onChange={(e) => setNewSubCode(e.target.value.toUpperCase())}
                     placeholder="ex: MAT01"
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-mono font-bold text-[#0b1f3a]"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-mono font-bold text-[#0b1f3a]"
                   />
                 </div>
 
@@ -1918,7 +1990,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                       setNewSubCycle(c);
                       if (newSubName) handleDisciplineNameChange(newSubName, c);
                     }}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-medium"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-medium text-slate-800"
                   >
                     {activeSubsystems.map((sub) => (
                       <option key={sub.id} value={sub.fullName}>
@@ -1930,12 +2002,12 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
               </div>
 
               {duplicateWarning && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 flex items-start gap-2">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-none text-amber-900 flex items-start gap-2">
                   <span className="material-symbols-outlined text-[18px] text-amber-600 shrink-0 mt-0.5">warning</span>
                   <div className="flex flex-col">
                     <span className="font-bold">Aviso: Disciplina já cadastrada neste ciclo</span>
                     <span className="text-[11px] text-amber-800">
-                      Já existe a disciplina "{newSubName}" neste mesmo subsistema. A sequência deve ser utilizada para ciclos ou áreas diferentes (ex: MAT01 no I Ciclo, MAT02 no II Ciclo).
+                      Já existe a disciplina "{newSubName}" neste mesmo subsistema. A sequência deve ser utilizada para ciclos ou áreas diferentes.
                     </span>
                   </div>
                 </div>
@@ -1950,7 +2022,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   value={newSubDescription}
                   onChange={(e) => setNewSubDescription(e.target.value)}
                   placeholder="ex: Álgebra Linear, Geometria Analítica e Funções Reais..."
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs text-slate-800"
                 />
               </div>
 
@@ -1966,7 +2038,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     required
                     value={newSubHours}
                     onChange={(e) => setNewSubHours(Number(e.target.value))}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-mono font-bold"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-mono font-bold text-slate-800"
                   />
                 </div>
 
@@ -1977,7 +2049,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   <select
                     value={newSubStatus}
                     onChange={(e) => setNewSubStatus(e.target.value as any)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs text-slate-800 font-semibold"
                   >
                     <option value="Aprovada">Aprovada</option>
                     <option value="Em Revisão">Em Revisão</option>
@@ -1999,20 +2071,49 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowNovaDisciplinaModal(false)}
-                  className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold active:scale-[0.98] transition-all duration-200 cursor-pointer"
+                  className="px-4 py-2 rounded-none bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs border border-slate-300 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] active:scale-[0.98] text-white font-bold shadow-md transition-all duration-200 cursor-pointer"
+                <AsyncButton
+                  type="button"
+                  variant="primary"
+                  icon="save"
+                  loadingText="A gravar disciplina..."
+                  successText="Disciplina Gravada com Sucesso!"
+                  onAsyncClick={async () => {
+                    if (!newSubName.trim() || !newSubCode.trim()) return;
+                    const initials = (newSubCoordinator || 'Coordenação')
+                      .split(' ')
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((w) => w[0].toUpperCase())
+                      .join('');
+
+                    dbService.addSubject({
+                      code: newSubCode.toUpperCase().trim(),
+                      name: newSubName.trim(),
+                      cycle: newSubCycle,
+                      area: newSubArea,
+                      weeklyHours: Number(newSubHours) || 4,
+                      description: newSubDescription.trim() || 'Unidade Curricular da Base Nacional',
+                      coordinatorName: newSubCoordinator || 'Docente Coordenador',
+                      coordinatorAvatar: initials || 'DC',
+                      status: newSubStatus
+                    });
+
+                    setNewSubCode('');
+                    setNewSubName('');
+                    setNewSubDescription('');
+                  }}
+                  onSuccessComplete={() => setShowNovaDisciplinaModal(false)}
                 >
                   Gravar Disciplina
-                </button>
+                </AsyncButton>
               </div>
             </form>
           </div>
@@ -2024,88 +2125,76 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       {/* ========================================================================= */}
       {selectedScheduleClass && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl p-6 border border-slate-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Grelha Horária Semanal
-                </span>
-                <h3 className="font-headline text-lg font-bold text-[#0b1f3a]">
-                  {selectedScheduleClass.name} — {selectedScheduleClass.room} ({selectedScheduleClass.shift})
-                </h3>
-                <span className="text-xs text-slate-500">
-                  Diretor de Turma: <strong>{selectedScheduleClass.headTeacherName || 'Coordenação'}</strong>
-                </span>
+          <div className="bg-white w-full max-w-3xl rounded-none shadow-2xl overflow-hidden border border-slate-400 max-h-[90vh] flex flex-col">
+            <FormModalHeader
+              title={`Grelha Horária Semanal — ${selectedScheduleClass.name}`}
+              subtitle={`Sala ${selectedScheduleClass.room} (${selectedScheduleClass.shift}) • DT: ${selectedScheduleClass.headTeacherName || 'Coordenação'}`}
+              icon="calendar_month"
+              onClose={() => setSelectedScheduleClass(null)}
+            />
+
+            <div className="p-6 overflow-y-auto">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-[#0b1f3a] text-white uppercase text-[10px] font-bold">
+                      <th className="py-2.5 px-3 w-28">Horário</th>
+                      <th className="py-2.5 px-3">Segunda-feira</th>
+                      <th className="py-2.5 px-3">Terça-feira</th>
+                      <th className="py-2.5 px-3">Quarta-feira</th>
+                      <th className="py-2.5 px-3">Quinta-feira</th>
+                      <th className="py-2.5 px-3">Sexta-feira</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 border-b border-slate-200">
+                    {getWeeklyTimetable(selectedScheduleClass).map((row, idx) => {
+                      const isBreak = row.seg === 'INTERVALO';
+                      return (
+                        <tr key={idx} className={isBreak ? 'bg-amber-50/70 font-bold text-amber-900' : 'hover:bg-slate-50'}>
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-700 bg-slate-50 border-r border-slate-200">
+                            {row.time}
+                          </td>
+                          <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
+                            {row.seg}
+                          </td>
+                          <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
+                            {row.ter}
+                          </td>
+                          <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
+                            {row.qua}
+                          </td>
+                          <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
+                            {row.qui}
+                          </td>
+                          <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
+                            {row.sex}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              <button
-                onClick={() => setSelectedScheduleClass(null)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
 
-            <div className="overflow-x-auto mt-4">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-[#0b1f3a] text-white uppercase text-[10px] font-bold">
-                    <th className="py-2.5 px-3 w-28">Horário</th>
-                    <th className="py-2.5 px-3">Segunda-feira</th>
-                    <th className="py-2.5 px-3">Terça-feira</th>
-                    <th className="py-2.5 px-3">Quarta-feira</th>
-                    <th className="py-2.5 px-3">Quinta-feira</th>
-                    <th className="py-2.5 px-3">Sexta-feira</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 border-b border-slate-200">
-                  {getWeeklyTimetable(selectedScheduleClass).map((row, idx) => {
-                    const isBreak = row.seg === 'INTERVALO';
-                    return (
-                      <tr key={idx} className={isBreak ? 'bg-amber-50/70 font-bold text-amber-900' : 'hover:bg-slate-50'}>
-                        <td className="py-2.5 px-3 font-mono font-bold text-slate-700 bg-slate-50 border-r border-slate-200">
-                          {row.time}
-                        </td>
-                        <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
-                          {row.seg}
-                        </td>
-                        <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
-                          {row.ter}
-                        </td>
-                        <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
-                          {row.qua}
-                        </td>
-                        <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
-                          {row.qui}
-                        </td>
-                        <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
-                          {row.sex}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="mt-6 flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100">
-              <span>Matriz curricular aprovada pelo MED Angola</span>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => window.print()}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-800 font-bold flex items-center gap-1.5 transition-all duration-200 cursor-pointer"
-                  type="button"
-                >
-                  <span className="material-symbols-outlined text-[16px]">print</span>
-                  <span>Imprimir Horário</span>
-                </button>
-                <button
-                  onClick={() => setSelectedScheduleClass(null)}
-                  className="px-4 py-2 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] active:scale-[0.98] text-white font-bold transition-all duration-200 cursor-pointer"
-                  type="button"
-                >
-                  Fechar
-                </button>
+              <div className="mt-6 flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-200">
+                <span>Matriz curricular aprovada pelo MED Angola</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="px-4 py-2 rounded-none bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold flex items-center gap-1.5 border border-slate-300 transition-colors cursor-pointer"
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">print</span>
+                    <span>Imprimir Horário</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectedScheduleClass(null)}
+                    className="px-4 py-2 rounded-none bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold transition-colors cursor-pointer"
+                    type="button"
+                  >
+                    Fechar
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2117,26 +2206,15 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       {/* ========================================================================= */}
       {selectedStudentsClass && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-6 border border-slate-200 max-h-[85vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Registo da Turma
-                </span>
-                <h3 className="font-headline text-lg font-bold text-[#0b1f3a]">
-                  Alunos Matriculados — {selectedStudentsClass.name}
-                </h3>
-              </div>
-              <button
-                onClick={() => setSelectedStudentsClass(null)}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
+          <div className="bg-white w-full max-w-2xl rounded-none shadow-2xl overflow-hidden border border-slate-400 max-h-[85vh] flex flex-col">
+            <FormModalHeader
+              title={`Alunos Matriculados — ${selectedStudentsClass.name}`}
+              subtitle="Registo institucional de estudantes associados a esta turma"
+              icon="badge"
+              onClose={() => setSelectedStudentsClass(null)}
+            />
 
-            <div className="py-3">
+            <div className="p-6 overflow-y-auto">
               {(() => {
                 const classStudents = studentsList.filter((stu) => String(stu.classId) === String(selectedStudentsClass.id));
                 const maxCap = selectedStudentsClass.maxCapacity || 30;
@@ -2144,14 +2222,14 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
 
                 return (
                   <>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 p-3 bg-slate-50 border border-slate-200 text-xs">
                       <div>
                         <span className="text-slate-500 block">Lotação & Ocupação Real da Sala:</span>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="font-bold text-[#0b1f3a] text-sm">
                             {classStudents.length} / {maxCap} Estudantes
                           </span>
-                          <span className="px-2 py-0.5 rounded-full bg-blue-100 text-[#0b1f3a] font-bold text-[10px]">
+                          <span className="px-2 py-0.5 bg-blue-100 text-[#0b1f3a] font-bold text-[10px]">
                             {occPct}% Ocupação
                           </span>
                         </div>
@@ -2171,7 +2249,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
 
                     <div className="space-y-2 max-h-96 overflow-y-auto">
                       {classStudents.length > 0 ? (
-                        classStudents.map((stu, i) => (
+                        classStudents.map((stu) => (
                           <div
                             key={stu.id}
                             className="p-3 bg-white hover:bg-slate-50 border border-slate-200 flex items-center justify-between text-xs transition-colors"
@@ -2203,7 +2281,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                           </div>
                         ))
                       ) : (
-                        <div className="py-10 text-center text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        <div className="py-10 text-center text-slate-400 bg-slate-50 border border-dashed border-slate-200">
                           <span className="material-symbols-outlined text-[32px] text-slate-300 block mb-2">
                             group_off
                           </span>
@@ -2219,28 +2297,28 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   </>
                 );
               })()}
-            </div>
 
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <button
-                onClick={() => {
-                  const id = selectedStudentsClass.id;
-                  setSelectedStudentsClass(null);
-                  onNavigateToAttendance(id);
-                }}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-800 font-bold flex items-center gap-1.5 transition-all duration-200 cursor-pointer"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[16px]">event_available</span>
-                <span>Fazer Chamada / Assiduidade</span>
-              </button>
-              <button
-                onClick={() => setSelectedStudentsClass(null)}
-                className="px-4 py-2 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] active:scale-[0.98] text-white font-bold transition-all duration-200 cursor-pointer"
-                type="button"
-              >
-                Fechar
-              </button>
+              <div className="pt-4 mt-4 border-t border-slate-200 flex items-center justify-between text-xs">
+                <button
+                  onClick={() => {
+                    const id = selectedStudentsClass.id;
+                    setSelectedStudentsClass(null);
+                    onNavigateToAttendance(id);
+                  }}
+                  className="px-4 py-2 rounded-none bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold flex items-center gap-1.5 border border-slate-300 transition-colors cursor-pointer"
+                  type="button"
+                >
+                  <span className="material-symbols-outlined text-[16px]">event_available</span>
+                  <span>Fazer Chamada / Assiduidade</span>
+                </button>
+                <button
+                  onClick={() => setSelectedStudentsClass(null)}
+                  className="px-4 py-2 rounded-none bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold transition-colors cursor-pointer"
+                  type="button"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2251,24 +2329,18 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       {/* ========================================================================= */}
       {editingClass && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl p-6 border border-slate-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#0b1f3a] text-[22px]">edit</span>
-                <h3 className="font-headline text-lg font-bold text-slate-900">
-                  Editar Turma: {editingClass.name}
-                </h3>
-              </div>
-              <button
-                onClick={() => setEditingClass(null)}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
+          <div className="bg-white w-full max-w-xl rounded-none shadow-2xl overflow-hidden border border-slate-400 max-h-[90vh] flex flex-col">
+            <FormModalHeader
+              title={`Editar Turma: ${editingClass.name}`}
+              subtitle="Actualizar informações curriculares e atribuição de direcção"
+              icon="edit"
+              onClose={() => setEditingClass(null)}
+            />
 
-            <form onSubmit={handleUpdateClass} className="mt-4 space-y-4 text-xs">
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              className="p-6 space-y-4 text-xs overflow-y-auto"
+            >
               <div>
                 <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Designação Oficial da Turma <span className="text-red-500">*</span>
@@ -2278,7 +2350,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   required
                   value={editClassName}
                   onChange={(e) => setEditClassName(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-bold text-slate-800"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-bold text-slate-800"
                 />
               </div>
 
@@ -2292,7 +2364,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     required
                     value={editClassGrade}
                     onChange={(e) => setEditClassGrade(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-semibold"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-semibold text-slate-800"
                   />
                 </div>
                 <div>
@@ -2305,7 +2377,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     maxLength={3}
                     value={editClassSection}
                     onChange={(e) => setEditClassSection(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-bold text-center"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-bold text-center text-slate-800"
                   />
                 </div>
               </div>
@@ -2318,7 +2390,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   type="text"
                   value={editClassArea}
                   onChange={(e) => setEditClassArea(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-medium"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-medium text-slate-800"
                 />
               </div>
 
@@ -2330,7 +2402,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   <select
                     value={editClassShift}
                     onChange={(e) => setEditClassShift(e.target.value as any)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-bold"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-bold text-slate-800"
                   >
                     <option value="Manhã">Manhã (07h-12h)</option>
                     <option value="Tarde">Tarde (12h30-17h)</option>
@@ -2346,7 +2418,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     required
                     value={editClassRoom}
                     onChange={(e) => setEditClassRoom(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-mono font-bold"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-mono font-bold text-slate-800"
                   />
                 </div>
                 <div>
@@ -2360,7 +2432,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     required
                     value={editClassCapacity}
                     onChange={(e) => setEditClassCapacity(Number(e.target.value))}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-mono font-bold"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-mono font-bold text-slate-800"
                   />
                 </div>
               </div>
@@ -2386,24 +2458,43 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   value={editClassDelegate}
                   onChange={(e) => setEditClassDelegate(e.target.value)}
                   placeholder="Nome do aluno delegado ou 'A eleger'..."
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs text-slate-800"
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setEditingClass(null)}
-                  className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold cursor-pointer"
+                  className="px-4 py-2 rounded-none bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs border border-slate-300 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold shadow-md cursor-pointer transition-colors"
+                <AsyncButton
+                  type="button"
+                  variant="primary"
+                  icon="save"
+                  loadingText="A guardar alterações..."
+                  successText="Turma Actualizada com Sucesso!"
+                  onAsyncClick={async () => {
+                    const teacherObj = teachersList.find((t) => t.id === editClassHeadTeacherId);
+                    dbService.updateClass(editingClass.id, {
+                      name: editClassName.trim() || editingClass.name,
+                      grade: editClassGrade || editingClass.grade,
+                      section: editClassSection.trim().toUpperCase() || editingClass.section,
+                      area: editClassArea || editingClass.area,
+                      shift: editClassShift,
+                      room: editClassRoom.trim() || editingClass.room,
+                      maxCapacity: Number(editClassCapacity) || 30,
+                      headTeacherId: teacherObj ? teacherObj.id : '',
+                      headTeacherName: teacherObj ? teacherObj.name : 'A designar',
+                      delegateName: editClassDelegate.trim() || 'A eleger pela turma'
+                    });
+                  }}
+                  onSuccessComplete={() => setEditingClass(null)}
                 >
                   Guardar Alterações
-                </button>
+                </AsyncButton>
               </div>
             </form>
           </div>
@@ -2415,82 +2506,94 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       {/* ========================================================================= */}
       {classToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl p-6 border border-slate-200">
-            {(() => {
-              const enrolled = studentsList.filter((s) => String(s.classId) === String(classToDelete.id)).length;
-              if (enrolled > 0) {
+          <div className="bg-white max-w-md w-full rounded-none shadow-2xl overflow-hidden border border-slate-400">
+            <FormModalHeader
+              title="Eliminar Turma"
+              subtitle={classToDelete.name}
+              icon="delete"
+              onClose={() => setClassToDelete(null)}
+            />
+
+            <div className="p-6">
+              {(() => {
+                const enrolled = studentsList.filter((s) => String(s.classId) === String(classToDelete.id)).length;
+                if (enrolled > 0) {
+                  return (
+                    <div>
+                      <div className="w-12 h-12 rounded-none bg-amber-100 text-amber-800 flex items-center justify-center mx-auto mb-4 border border-amber-300">
+                        <span className="material-symbols-outlined text-[28px]">lock</span>
+                      </div>
+                      <h3 className="font-headline text-lg font-bold text-slate-900 text-center">
+                        Turma com Matrículas Ativas
+                      </h3>
+                      <p className="text-xs text-slate-600 text-center mt-2 leading-relaxed">
+                        Não é possível eliminar a turma <strong>{classToDelete.name}</strong> porque existem{' '}
+                        <span className="font-bold text-amber-900">{enrolled} aluno(s) com matrícula ativa</span> associados a esta turma na base de dados.
+                      </p>
+                      <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-none text-xs text-amber-900">
+                        Transfira ou remova as matrículas dos alunos antes de eliminar a turma.
+                      </div>
+                      <div className="mt-6 flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            const cls = classToDelete;
+                            setClassToDelete(null);
+                            setSelectedStudentsClass(cls);
+                          }}
+                          className="px-4 py-2 rounded-none bg-[#0b1f3a] text-white font-bold text-xs hover:bg-[#7a0c0c] cursor-pointer transition-colors"
+                          type="button"
+                        >
+                          Ver Alunos Desta Turma
+                        </button>
+                        <button
+                          onClick={() => setClassToDelete(null)}
+                          className="px-4 py-2 rounded-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs border border-slate-300 cursor-pointer transition-colors"
+                          type="button"
+                        >
+                          Fechar
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div>
-                    <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center mx-auto mb-4">
-                      <span className="material-symbols-outlined text-[28px]">lock</span>
+                    <div className="w-12 h-12 rounded-none bg-red-100 text-red-700 flex items-center justify-center mx-auto mb-4 border border-red-300">
+                      <span className="material-symbols-outlined text-[28px]">delete_forever</span>
                     </div>
                     <h3 className="font-headline text-lg font-bold text-slate-900 text-center">
-                      Turma com Matrículas Ativas
+                      Eliminar Turma da Base de Dados?
                     </h3>
                     <p className="text-xs text-slate-600 text-center mt-2 leading-relaxed">
-                      Não é possível eliminar a turma <strong>{classToDelete.name}</strong> porque existem{' '}
-                      <span className="font-bold text-amber-900">{enrolled} aluno(s) com matrícula ativa</span> associados a esta turma na base de dados.
+                      Tem a certeza de que deseja eliminar a turma <strong>{classToDelete.name}</strong> ({classToDelete.shift} • {classToDelete.room})? Esta ação é definitiva na base de dados.
                     </p>
-                    <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
-                      Por motivos de integridade e conformidade escolar do Ministério da Educação, transfira ou remova as matrículas dos alunos antes de eliminar a turma.
-                    </div>
                     <div className="mt-6 flex items-center justify-end gap-2">
                       <button
-                        onClick={() => {
-                          const cls = classToDelete;
-                          setClassToDelete(null);
-                          setSelectedStudentsClass(cls);
-                        }}
-                        className="px-4 py-2 rounded-xl bg-[#0b1f3a] text-white font-bold text-xs hover:bg-[#7a0c0c] cursor-pointer"
-                        type="button"
-                      >
-                        Ver Alunos Desta Turma
-                      </button>
-                      <button
                         onClick={() => setClassToDelete(null)}
-                        className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer"
+                        className="px-4 py-2 rounded-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs border border-slate-300 cursor-pointer transition-colors"
                         type="button"
                       >
-                        Fechar
+                        Cancelar
                       </button>
+                      <AsyncButton
+                        type="button"
+                        variant="danger"
+                        icon="delete"
+                        loadingText="A eliminar turma..."
+                        successText="Turma Eliminada com Sucesso!"
+                        onAsyncClick={async () => {
+                          dbService.deleteClass(classToDelete.id);
+                        }}
+                        onSuccessComplete={() => setClassToDelete(null)}
+                      >
+                        Sim, Eliminar Turma
+                      </AsyncButton>
                     </div>
                   </div>
                 );
-              }
-
-              return (
-                <div>
-                  <div className="w-12 h-12 rounded-full bg-red-100 text-red-700 flex items-center justify-center mx-auto mb-4">
-                    <span className="material-symbols-outlined text-[28px]">delete_forever</span>
-                  </div>
-                  <h3 className="font-headline text-lg font-bold text-slate-900 text-center">
-                    Eliminar Turma da Base de Dados?
-                  </h3>
-                  <p className="text-xs text-slate-600 text-center mt-2 leading-relaxed">
-                    Tem a certeza de que deseja eliminar a turma <strong>{classToDelete.name}</strong> ({classToDelete.shift} • {classToDelete.room})? Esta ação é definitiva na base de dados.
-                  </p>
-                  <div className="mt-6 flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => setClassToDelete(null)}
-                      className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer"
-                      type="button"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={() => {
-                        dbService.deleteClass(classToDelete.id);
-                        setClassToDelete(null);
-                      }}
-                      className="px-4 py-2 rounded-xl bg-[#ac332b] hover:bg-red-800 text-white font-bold text-xs cursor-pointer shadow-xs"
-                      type="button"
-                    >
-                      Sim, Eliminar Turma
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
+              })()}
+            </div>
           </div>
         </div>
       )}
@@ -2500,24 +2603,18 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       {/* ========================================================================= */}
       {editingCourse && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 border border-slate-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#0b1f3a] text-[22px]">edit</span>
-                <h3 className="font-headline text-lg font-bold text-slate-900">
-                  Editar Curso Curricular
-                </h3>
-              </div>
-              <button
-                onClick={() => setEditingCourse(null)}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
+          <div className="bg-white w-full max-w-lg rounded-none shadow-2xl overflow-hidden border border-slate-400 max-h-[90vh] flex flex-col">
+            <FormModalHeader
+              title="Editar Curso Curricular"
+              subtitle={editingCourse.name}
+              icon="edit"
+              onClose={() => setEditingCourse(null)}
+            />
 
-            <form onSubmit={handleUpdateCourse} className="mt-4 space-y-4 text-xs">
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              className="p-6 space-y-4 text-xs overflow-y-auto"
+            >
               <div>
                 <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Designação Oficial do Curso <span className="text-red-500">*</span>
@@ -2527,7 +2624,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   required
                   value={editCourseName}
                   onChange={(e) => setEditCourseName(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-bold"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-bold text-slate-800"
                 />
               </div>
 
@@ -2541,7 +2638,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     required
                     value={editCourseCode}
                     onChange={(e) => setEditCourseCode(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-mono font-bold uppercase"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-mono font-bold uppercase text-slate-800"
                   />
                 </div>
                 <div>
@@ -2551,7 +2648,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   <select
                     value={editCourseLevel}
                     onChange={(e) => setEditCourseLevel(e.target.value as any)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-semibold"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-semibold text-slate-800"
                   >
                     <option value="secundario_2">II Ciclo / Ensino Médio</option>
                     <option value="superior">Ensino Superior</option>
@@ -2571,7 +2668,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     required
                     value={editCourseDuration}
                     onChange={(e) => setEditCourseDuration(Number(e.target.value))}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-mono font-bold"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-mono font-bold text-slate-800"
                   />
                 </div>
                 <div>
@@ -2581,7 +2678,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   <select
                     value={editCourseStatus}
                     onChange={(e) => setEditCourseStatus(e.target.value as any)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-bold"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-bold text-slate-800"
                   >
                     <option value="ativo">Ativo</option>
                     <option value="inativo">Inativo</option>
@@ -2608,24 +2705,40 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   rows={2}
                   value={editCourseDescription}
                   onChange={(e) => setEditCourseDescription(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs text-slate-800"
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setEditingCourse(null)}
-                  className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold cursor-pointer"
+                  className="px-4 py-2 rounded-none bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs border border-slate-300 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold shadow-md cursor-pointer transition-colors"
+                <AsyncButton
+                  type="button"
+                  variant="primary"
+                  icon="save"
+                  loadingText="A salvar alterações..."
+                  successText="Curso Actualizado com Sucesso!"
+                  onAsyncClick={async () => {
+                    dbService.updateCourse(editingCourse.id, {
+                      name: editCourseName.trim(),
+                      code: editCourseCode.trim().toUpperCase(),
+                      level: editCourseLevel,
+                      cycle: editCourseLevel === 'superior' ? 'Ensino Superior' : 'II Ciclo / Ensino Médio',
+                      durationYears: Number(editCourseDuration) || 3,
+                      coordinatorName: editCourseCoordinator.trim() || 'A designar',
+                      description: editCourseDescription.trim(),
+                      status: editCourseStatus
+                    });
+                  }}
+                  onSuccessComplete={() => setEditingCourse(null)}
                 >
                   Salvar Alterações
-                </button>
+                </AsyncButton>
               </div>
             </form>
           </div>
@@ -2637,34 +2750,46 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       {/* ========================================================================= */}
       {courseToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl p-6 border border-slate-200">
-            <div className="w-12 h-12 rounded-full bg-red-100 text-red-700 flex items-center justify-center mx-auto mb-4">
-              <span className="material-symbols-outlined text-[28px]">warning</span>
-            </div>
-            <h3 className="font-headline text-lg font-bold text-slate-900 text-center">
-              Eliminar Curso da Matriz?
-            </h3>
-            <p className="text-xs text-slate-600 text-center mt-2 leading-relaxed">
-              Deseja eliminar o curso <strong>{courseToDelete.name}</strong> ({courseToDelete.code}) da base de dados institucional?
-            </p>
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setCourseToDelete(null)}
-                className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer"
-                type="button"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => {
-                  dbService.deleteCourse(courseToDelete.id);
-                  setCourseToDelete(null);
-                }}
-                className="px-4 py-2 rounded-xl bg-[#ac332b] hover:bg-red-800 text-white font-bold text-xs cursor-pointer shadow-xs"
-                type="button"
-              >
-                Sim, Eliminar Curso
-              </button>
+          <div className="bg-white max-w-md w-full rounded-none shadow-2xl overflow-hidden border border-slate-400">
+            <FormModalHeader
+              title="Eliminar Curso"
+              subtitle={courseToDelete.name}
+              icon="delete"
+              onClose={() => setCourseToDelete(null)}
+            />
+
+            <div className="p-6">
+              <div className="w-12 h-12 rounded-none bg-red-100 text-red-700 flex items-center justify-center mx-auto mb-4 border border-red-300">
+                <span className="material-symbols-outlined text-[28px]">warning</span>
+              </div>
+              <h3 className="font-headline text-lg font-bold text-slate-900 text-center">
+                Eliminar Curso da Matriz?
+              </h3>
+              <p className="text-xs text-slate-600 text-center mt-2 leading-relaxed">
+                Deseja eliminar o curso <strong>{courseToDelete.name}</strong> ({courseToDelete.code}) da base de dados institucional?
+              </p>
+              <div className="mt-6 flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setCourseToDelete(null)}
+                  className="px-4 py-2 rounded-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs border border-slate-300 cursor-pointer transition-colors"
+                  type="button"
+                >
+                  Cancelar
+                </button>
+                <AsyncButton
+                  type="button"
+                  variant="danger"
+                  icon="delete"
+                  loadingText="A eliminar curso..."
+                  successText="Curso Eliminado com Sucesso!"
+                  onAsyncClick={async () => {
+                    dbService.deleteCourse(courseToDelete.id);
+                  }}
+                  onSuccessComplete={() => setCourseToDelete(null)}
+                >
+                  Sim, Eliminar Curso
+                </AsyncButton>
+              </div>
             </div>
           </div>
         </div>
@@ -2675,24 +2800,18 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       {/* ========================================================================= */}
       {editingSubject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 border border-slate-200 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#0b1f3a] text-[22px]">edit</span>
-                <h3 className="font-headline text-lg font-bold text-slate-900">
-                  Editar Disciplina Curricular
-                </h3>
-              </div>
-              <button
-                onClick={() => setEditingSubject(null)}
-                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
+          <div className="bg-white w-full max-w-lg rounded-none shadow-2xl overflow-hidden border border-slate-400 max-h-[90vh] flex flex-col">
+            <FormModalHeader
+              title="Editar Disciplina Curricular"
+              subtitle={editingSubject.name}
+              icon="edit"
+              onClose={() => setEditingSubject(null)}
+            />
 
-            <form onSubmit={handleUpdateSubject} className="mt-4 space-y-4 text-xs">
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              className="p-6 space-y-4 text-xs overflow-y-auto"
+            >
               <div>
                 <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Nome da Disciplina <span className="text-red-500">*</span>
@@ -2702,7 +2821,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   required
                   value={editSubName}
                   onChange={(e) => setEditSubName(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-semibold"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-semibold text-slate-800"
                 />
               </div>
 
@@ -2716,7 +2835,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     required
                     value={editSubCode}
                     onChange={(e) => setEditSubCode(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-mono font-bold uppercase"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-mono font-bold uppercase text-slate-800"
                   />
                 </div>
                 <div>
@@ -2730,7 +2849,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     required
                     value={editSubHours}
                     onChange={(e) => setEditSubHours(Number(e.target.value))}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-mono font-bold"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-mono font-bold text-slate-800"
                   />
                 </div>
               </div>
@@ -2744,7 +2863,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     type="text"
                     value={editSubCycle}
                     onChange={(e) => setEditSubCycle(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs text-slate-800"
                   />
                 </div>
                 <div>
@@ -2754,7 +2873,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   <select
                     value={editSubStatus}
                     onChange={(e) => setEditSubStatus(e.target.value as any)}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs font-bold"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-bold text-slate-800"
                   >
                     <option value="Aprovada">Aprovada</option>
                     <option value="Em Revisão">Em Revisão</option>
@@ -2782,24 +2901,40 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   rows={2}
                   value={editSubDescription}
                   onChange={(e) => setEditSubDescription(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-xs"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs text-slate-800"
                 />
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setEditingSubject(null)}
-                  className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-bold cursor-pointer"
+                  className="px-4 py-2 rounded-none bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs border border-slate-300 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold shadow-md cursor-pointer transition-colors"
+                <AsyncButton
+                  type="button"
+                  variant="primary"
+                  icon="save"
+                  loadingText="A salvar alterações..."
+                  successText="Disciplina Actualizada com Sucesso!"
+                  onAsyncClick={async () => {
+                    dbService.updateSubject(editingSubject.id, {
+                      name: editSubName.trim(),
+                      code: editSubCode.trim().toUpperCase(),
+                      cycle: editSubCycle,
+                      area: editSubArea,
+                      weeklyHours: Number(editSubHours) || 4,
+                      coordinatorName: editSubCoordinator.trim() || 'Docente Coordenador',
+                      status: editSubStatus,
+                      description: editSubDescription.trim()
+                    });
+                  }}
+                  onSuccessComplete={() => setEditingSubject(null)}
                 >
                   Salvar Alterações
-                </button>
+                </AsyncButton>
               </div>
             </form>
           </div>
@@ -2811,34 +2946,46 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       {/* ========================================================================= */}
       {subjectToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl p-6 border border-slate-200">
-            <div className="w-12 h-12 rounded-full bg-red-100 text-red-700 flex items-center justify-center mx-auto mb-4">
-              <span className="material-symbols-outlined text-[28px]">warning</span>
-            </div>
-            <h3 className="font-headline text-lg font-bold text-slate-900 text-center">
-              Eliminar Disciplina da Matriz?
-            </h3>
-            <p className="text-xs text-slate-600 text-center mt-2 leading-relaxed">
-              Pretende eliminar a disciplina <strong>{subjectToDelete.name}</strong> ({subjectToDelete.code}) da matriz curricular institucional?
-            </p>
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setSubjectToDelete(null)}
-                className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer"
-                type="button"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => {
-                  dbService.deleteSubject(subjectToDelete.id);
-                  setSubjectToDelete(null);
-                }}
-                className="px-4 py-2 rounded-xl bg-[#ac332b] hover:bg-red-800 text-white font-bold text-xs cursor-pointer shadow-xs"
-                type="button"
-              >
-                Sim, Eliminar Disciplina
-              </button>
+          <div className="bg-white max-w-md w-full rounded-none shadow-2xl overflow-hidden border border-slate-400">
+            <FormModalHeader
+              title="Eliminar Disciplina"
+              subtitle={subjectToDelete.name}
+              icon="delete"
+              onClose={() => setSubjectToDelete(null)}
+            />
+
+            <div className="p-6">
+              <div className="w-12 h-12 rounded-none bg-red-100 text-red-700 flex items-center justify-center mx-auto mb-4 border border-red-300">
+                <span className="material-symbols-outlined text-[28px]">warning</span>
+              </div>
+              <h3 className="font-headline text-lg font-bold text-slate-900 text-center">
+                Eliminar Disciplina da Matriz?
+              </h3>
+              <p className="text-xs text-slate-600 text-center mt-2 leading-relaxed">
+                Pretende eliminar a disciplina <strong>{subjectToDelete.name}</strong> ({subjectToDelete.code}) da matriz curricular institucional?
+              </p>
+              <div className="mt-6 flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setSubjectToDelete(null)}
+                  className="px-4 py-2 rounded-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs border border-slate-300 cursor-pointer transition-colors"
+                  type="button"
+                >
+                  Cancelar
+                </button>
+                <AsyncButton
+                  type="button"
+                  variant="danger"
+                  icon="delete"
+                  loadingText="A eliminar disciplina..."
+                  successText="Disciplina Eliminada com Sucesso!"
+                  onAsyncClick={async () => {
+                    dbService.deleteSubject(subjectToDelete.id);
+                  }}
+                  onSuccessComplete={() => setSubjectToDelete(null)}
+                >
+                  Sim, Eliminar Disciplina
+                </AsyncButton>
+              </div>
             </div>
           </div>
         </div>

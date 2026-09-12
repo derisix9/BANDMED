@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { SchoolDatabase, Student, UserRole, AttachedDocument } from '../types';
 import { dbService } from '../services/db';
 import { getSubsystemForGrade } from '../utils/educationSubsystems';
+import { AsyncButton } from '../components/AsyncButton';
 
 interface AlunosViewProps {
   db: SchoolDatabase;
@@ -1971,20 +1972,24 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
               <button
                 type="button"
                 onClick={() => setStudentToDelete(null)}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs cursor-pointer border border-slate-300"
+                className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs cursor-pointer border border-slate-300 rounded-none"
               >
                 Cancelar
               </button>
-              <button
-                type="button"
-                onClick={() => {
+              <AsyncButton
+                variant="danger"
+                loadingText="A eliminar aluno..."
+                successText="Aluno Eliminado com Sucesso!"
+                onAsyncClick={async () => {
+                  await new Promise((r) => setTimeout(r, 600));
                   dbService.deleteStudent(studentToDelete.id);
+                }}
+                onSuccessComplete={() => {
                   setStudentToDelete(null);
                 }}
-                className="px-4 py-2 bg-[#ac332b] hover:bg-red-800 text-white font-bold text-xs shadow-none cursor-pointer border border-[#ac332b] transition-all"
               >
                 Sim, Eliminar Aluno
-              </button>
+              </AsyncButton>
             </div>
           </div>
         </div>

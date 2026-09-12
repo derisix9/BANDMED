@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { SchoolDatabase, Teacher, UserRole } from '../types';
 import { dbService } from '../services/db';
+import { AsyncButton } from '../components/AsyncButton';
 
 const DEFAULT_TEACHER_PHOTOS = [
   'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150',
@@ -255,8 +256,17 @@ export const ProfessoresView: React.FC<ProfessoresViewProps> = ({ db, currentUse
                       <tr key={teacher.id} className="hover:bg-slate-50 transition-colors">
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-[#0b1f3a] font-extrabold text-xs shrink-0">
-                              {teacher.name.substring(0, 2).toUpperCase()}
+                            <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-[#0b1f3a] font-extrabold text-xs shrink-0 overflow-hidden">
+                              {teacher.avatar ? (
+                                <img
+                                  src={teacher.avatar}
+                                  alt={teacher.name}
+                                  className="w-full h-full object-cover object-center"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                teacher.name.substring(0, 2).toUpperCase()
+                              )}
                             </div>
                             <div>
                               <div className="font-bold text-[#0b1f3a]">{teacher.name}</div>
@@ -610,12 +620,21 @@ export const ProfessoresView: React.FC<ProfessoresViewProps> = ({ db, currentUse
               {/* Profile Card */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-[#0b1f3a] text-white flex items-center justify-center font-bold text-2xl shadow-xs shrink-0">
-                    {viewingTeacher.name
-                      .split(' ')
-                      .slice(0, 2)
-                      .map((n) => n[0])
-                      .join('')}
+                  <div className="w-16 h-16 rounded-2xl bg-[#0b1f3a] text-white flex items-center justify-center font-bold text-2xl shadow-xs shrink-0 overflow-hidden border-2 border-slate-200">
+                    {viewingTeacher.avatar ? (
+                      <img
+                        src={viewingTeacher.avatar}
+                        alt={viewingTeacher.name}
+                        className="w-full h-full object-cover object-center"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      viewingTeacher.name
+                        .split(' ')
+                        .slice(0, 2)
+                        .map((n) => n[0])
+                        .join('')
+                    )}
                   </div>
                   <div>
                     <h4 className="font-headline text-lg font-bold text-[#0b1f3a]">
@@ -797,16 +816,20 @@ export const ProfessoresView: React.FC<ProfessoresViewProps> = ({ db, currentUse
               >
                 Cancelar
               </button>
-              <button
-                type="button"
-                onClick={() => {
+              <AsyncButton
+                variant="danger"
+                loadingText="A eliminar docente..."
+                successText="Docente Eliminado com Sucesso!"
+                onAsyncClick={async () => {
+                  await new Promise((r) => setTimeout(r, 600));
                   dbService.deleteTeacher(deletingTeacher.id);
+                }}
+                onSuccessComplete={() => {
                   setDeletingTeacher(null);
                 }}
-                className="px-4 py-2.5 rounded-none bg-[#ac332b] hover:bg-red-800 text-white font-bold text-xs shadow-none transition-all cursor-pointer border border-[#ac332b]"
               >
                 Confirmar Eliminação
-              </button>
+              </AsyncButton>
             </div>
           </div>
         </div>

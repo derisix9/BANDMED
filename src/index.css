@@ -92,5 +92,67 @@ h1, h2, h3, h4, h5, h6, .font-headline {
 
 /* Table styling helpers */
 .table-responsive {
-  border-radius: 0.5rem;
+  border-radius: 0px !important;
 }
+
+/* ========================================================================= */
+/* CANTOS RETOS / QUADRADOS INSTITUCIONAIS (SEM BORDAS ARREDONDADAS)         */
+/* Conforme diretiva: formulários, cards, tabelas, modais e componentes       */
+/* devem ter cantos estritamente quadrados.                                  */
+/* ========================================================================= */
+*,
+*::before,
+*::after {
+  --radius: 0px !important;
+}
+
+/* Forçar cantos retos em todas as classes utilitárias de rounded */
+.rounded,
+.rounded-xs,
+.rounded-sm,
+.rounded-md,
+.rounded-lg,
+.rounded-xl,
+.rounded-2xl,
+.rounded-3xl,
+.rounded-4xl,
+.rounded-t,
+.rounded-b,
+.rounded-l,
+.rounded-r,
+.rounded-tl,
+.rounded-tr,
+.rounded-bl,
+.rounded-br,
+.rounded-s,
+.rounded-e,
+.rounded-full:not(.status-indicator) {
+  border-radius: 0px !important;
+}
+
+/* Formulários, cartões, tabelas, modais, caixas e componentes quadrados */
+input,
+select,
+textarea,
+button,
+table,
+thead,
+tbody,
+tr,
+th,
+td,
+form,
+fieldset,
+dialog,
+.table-responsive,
+.card,
+.modal-content,
+[role="dialog"],
+[role="tab"],
+[role="tabpanel"],
+.badge,
+.avatar,
+img {
+  border-radius: 0px !important;
+}
+

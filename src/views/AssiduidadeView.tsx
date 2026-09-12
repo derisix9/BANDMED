@@ -5,7 +5,7 @@ import { dbService } from '../services/db';
 interface AssiduidadeViewProps {
   db: SchoolDatabase;
   currentUserRole: UserRole;
-  initialClassId?: number;
+  initialClassId?: string | number;
 }
 
 export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
@@ -13,8 +13,10 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
   currentUserRole,
   initialClassId
 }) => {
-  const [selectedClassId, setSelectedClassId] = useState<number>(initialClassId || db.classes[0].id);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<number>(db.subjects[0].id);
+  const [selectedClassId, setSelectedClassId] = useState<string>(
+    initialClassId ? String(initialClassId) : (db.classes[0]?.id || '')
+  );
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(db.subjects[0]?.id || '');
   const [selectedDate, setSelectedDate] = useState<string>('2024-10-24');
   const [timeSlot, setTimeSlot] = useState<string>('08:30–10:00');
   const [lessonSummary, setLessonSummary] = useState<string>(
@@ -24,29 +26,29 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
   const [signedBy, setSignedBy] = useState<string>('Prof. João Figueiredo');
 
   // Active class and students
-  const activeClass = db.classes.find((c) => c.id === selectedClassId) || db.classes[0];
-  const activeSubject = db.subjects.find((s) => s.id === selectedSubjectId) || db.subjects[0];
+  const activeClass = db.classes.find((c) => String(c.id) === String(selectedClassId)) || db.classes[0];
+  const activeSubject = db.subjects.find((s) => String(s.id) === String(selectedSubjectId)) || db.subjects[0];
   const classStudents = activeClass ? (db.students || []).filter((s) => s.classId === activeClass.id) : [];
 
   // Local state for attendance records
-  const [records, setRecords] = useState<Record<number, { status: 'P' | 'FJ' | 'FI' | 'A'; note?: string }>>({
-    1: { status: 'P', note: 'Presente' },
-    2: { status: 'P', note: 'Participativa' },
-    3: { status: 'FJ', note: 'Atestado médico entregue na secretaria' },
-    4: { status: 'A', note: 'Chegou às 08:42 com atraso justificado' },
-    5: { status: 'P', note: 'Presente' },
-    6: { status: 'FI', note: 'Faltou sem aviso prévio. SMS enviado ao encarregado.' }
+  const [records, setRecords] = useState<Record<string, { status: 'P' | 'FJ' | 'FI' | 'A'; note?: string }>>({
+    'std-1': { status: 'P', note: 'Presente' },
+    'std-2': { status: 'P', note: 'Participativa' },
+    'std-3': { status: 'FJ', note: 'Atestado médico entregue na secretaria' },
+    'std-4': { status: 'A', note: 'Chegou às 08:42 com atraso justificado' },
+    'std-5': { status: 'P', note: 'Presente' },
+    'std-6': { status: 'FI', note: 'Faltou sem aviso prévio. SMS enviado ao encarregado.' }
   });
 
-  const handleStatusChange = (studentId: number, status: 'P' | 'FJ' | 'FI' | 'A') => {
+  const handleStatusChange = (studentId: string, status: 'P' | 'FJ' | 'FI' | 'A') => {
     setRecords((prev) => ({
       ...prev,
-      [studentId]: { ...prev[studentId], status }
+      [studentId]: { ...(prev[studentId] || { note: '' }), status }
     }));
   };
 
   const handleMarkAllPresent = () => {
-    const updated: Record<number, { status: 'P' | 'FJ' | 'FI' | 'A'; note?: string }> = {};
+    const updated: Record<string, { status: 'P' | 'FJ' | 'FI' | 'A'; note?: string }> = {};
     classStudents.forEach((s) => {
       updated[s.id] = { status: 'P', note: 'Presente' };
     });
@@ -105,7 +107,7 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
           <label className="block uppercase font-bold text-slate-500 mb-1">Turma & Ciclo</label>
           <select
             value={selectedClassId}
-            onChange={(e) => setSelectedClassId(Number(e.target.value))}
+            onChange={(e) => setSelectedClassId(e.target.value)}
             className="w-full h-9 px-3 rounded-lg bg-slate-100 font-bold text-slate-800 focus:bg-white focus:ring-1 focus:ring-[#0b1f3a]"
           >
             {db.classes.map((c) => (
@@ -120,7 +122,7 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
           <label className="block uppercase font-bold text-slate-500 mb-1">Disciplina Curricular</label>
           <select
             value={selectedSubjectId}
-            onChange={(e) => setSelectedSubjectId(Number(e.target.value))}
+            onChange={(e) => setSelectedSubjectId(e.target.value)}
             className="w-full h-9 px-3 rounded-lg bg-slate-100 font-bold text-slate-800 focus:bg-white focus:ring-1 focus:ring-[#0b1f3a]"
           >
             {db.subjects.map((s) => (

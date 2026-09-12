@@ -7,13 +7,17 @@ interface PautasViewProps {
 }
 
 export const PautasView: React.FC<PautasViewProps> = ({ db, currentUserRole }) => {
-  const [selectedClassId, setSelectedClassId] = useState<number>(db.classes[0].id);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<number>(db.subjects[1].id); // FQ-A
+  const [selectedClassId, setSelectedClassId] = useState<string>(
+    db.classes[0]?.id ? String(db.classes[0].id) : ''
+  );
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>(
+    db.subjects[1]?.id ? String(db.subjects[1].id) : (db.subjects[0]?.id ? String(db.subjects[0].id) : '')
+  );
   const [selectedTrimester, setSelectedTrimester] = useState<'1' | '2' | '3'>('1');
   const [isDirectorSigned, setIsDirectorSigned] = useState<boolean>(false);
 
-  const activeClass = db.classes.find((c) => c.id === selectedClassId) || db.classes[0];
-  const activeSubject = db.subjects.find((s) => s.id === selectedSubjectId) || db.subjects[1];
+  const activeClass = db.classes.find((c) => String(c.id) === String(selectedClassId)) || db.classes[0];
+  const activeSubject = db.subjects.find((s) => String(s.id) === String(selectedSubjectId)) || db.subjects[1] || db.subjects[0];
 
   // Editable grades state
   const [gradeRows, setGradeRows] = useState<GradeRecord[]>([
@@ -177,7 +181,7 @@ export const PautasView: React.FC<PautasViewProps> = ({ db, currentUserRole }) =
           <label className="block uppercase font-bold text-slate-500 mb-1">Turma</label>
           <select
             value={selectedClassId}
-            onChange={(e) => setSelectedClassId(Number(e.target.value))}
+            onChange={(e) => setSelectedClassId(e.target.value)}
             className="w-full h-9 px-3 rounded-lg bg-slate-100 font-bold text-slate-800 focus:bg-white focus:ring-1 focus:ring-[#0b1f3a]"
           >
             {db.classes.map((c) => (
@@ -192,7 +196,7 @@ export const PautasView: React.FC<PautasViewProps> = ({ db, currentUserRole }) =
           <label className="block uppercase font-bold text-slate-500 mb-1">Disciplina Curricular</label>
           <select
             value={selectedSubjectId}
-            onChange={(e) => setSelectedSubjectId(Number(e.target.value))}
+            onChange={(e) => setSelectedSubjectId(e.target.value)}
             className="w-full h-9 px-3 rounded-lg bg-slate-100 font-bold text-slate-800 focus:bg-white focus:ring-1 focus:ring-[#0b1f3a]"
           >
             {db.subjects.map((s) => (

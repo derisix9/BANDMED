@@ -4,6 +4,7 @@ import {
   Teacher,
   ClassRoom,
   Subject,
+  Course,
   AttendanceSheet,
   ExamPauta,
   TuitionInvoice,
@@ -580,6 +581,117 @@ const defaultSubjects: Subject[] = [
   }
 ];
 
+const defaultCourses: Course[] = [
+  {
+    id: 'crs-cfb',
+    code: 'CFB',
+    name: 'Ciências Físicas e Biológicas',
+    level: 'secundario_2',
+    cycle: 'II Ciclo / Ensino Médio',
+    grades: ['10.ª Classe', '11.ª Classe', '12.ª Classe'],
+    description: 'Curso pré-universitário vocacionado para Medicina, Engenharia, Agronomia e Ciências Naturais.',
+    coordinatorName: 'Prof. Alberto Gusmão',
+    durationYears: 3,
+    status: 'ativo'
+  },
+  {
+    id: 'crs-cej',
+    code: 'CEJ',
+    name: 'Ciências Económicas e Jurídicas',
+    level: 'secundario_2',
+    cycle: 'II Ciclo / Ensino Médio',
+    grades: ['10.ª Classe', '11.ª Classe', '12.ª Classe'],
+    description: 'Formação orientada para Economia, Gestão, Direito, Relações Internacionais e Finanças.',
+    coordinatorName: 'Prof.ª Marta Ndalu',
+    durationYears: 3,
+    status: 'ativo'
+  },
+  {
+    id: 'crs-chs',
+    code: 'CHS',
+    name: 'Ciências Humanas e Sociais',
+    level: 'secundario_2',
+    cycle: 'II Ciclo / Ensino Médio',
+    grades: ['10.ª Classe', '11.ª Classe', '12.ª Classe'],
+    description: 'Foco em História, Filosofia, Literatura, Sociologia e Comunicação Social.',
+    coordinatorName: 'Prof. Carlos Buanga',
+    durationYears: 3,
+    status: 'ativo'
+  },
+  {
+    id: 'crs-avm',
+    code: 'AVM',
+    name: 'Artes Visuais & Multimédia',
+    level: 'secundario_2',
+    cycle: 'II Ciclo / Ensino Médio',
+    grades: ['10.ª Classe', '11.ª Classe', '12.ª Classe'],
+    description: 'Criação artística, design gráfico, tecnologias multimédia e património cultural.',
+    coordinatorName: 'Prof.ª Teresa Vunge',
+    durationYears: 3,
+    status: 'ativo'
+  },
+  {
+    id: 'crs-tinf',
+    code: 'TINF',
+    name: 'Informática de Gestão & Redes',
+    level: 'secundario_2',
+    cycle: 'II Ciclo / Ensino Médio Técnico',
+    grades: ['10.ª Classe', '11.ª Classe', '12.ª Classe', '13.ª Classe (Técnico-Profissional)'],
+    description: 'Ensino técnico profissional em desenvolvimento de software, infraestruturas de rede e sistemas de gestão.',
+    coordinatorName: 'Prof. João Figueiredo',
+    durationYears: 4,
+    status: 'ativo'
+  },
+  {
+    id: 'crs-tenf',
+    code: 'TENF',
+    name: 'Técnico de Enfermagem Geral',
+    level: 'secundario_2',
+    cycle: 'II Ciclo / Ensino Médio Técnico',
+    grades: ['10.ª Classe', '11.ª Classe', '12.ª Classe', '13.ª Classe (Técnico-Profissional)'],
+    description: 'Preparação técnica para cuidados hospitalares, urgências, saúde comunitária e farmacologia clínica.',
+    coordinatorName: 'Dr. Manuel Domingos',
+    durationYears: 4,
+    status: 'ativo'
+  },
+  {
+    id: 'crs-med',
+    code: 'MED',
+    name: 'Medicina Geral',
+    level: 'superior',
+    cycle: 'Ensino Superior',
+    grades: ['1.º Ano (Licenciatura)', '2.º Ano (Licenciatura)', '3.º Ano (Licenciatura)', '4.º Ano (Licenciatura)', '5.º Ano (Licenciatura/Especialidade)'],
+    description: 'Grau superior integrado para formação médica, cirurgia, pediatria e medicina preventiva.',
+    coordinatorName: 'Dr. Manuel Domingos',
+    durationYears: 6,
+    status: 'ativo'
+  },
+  {
+    id: 'crs-enginf',
+    code: 'ENGINF',
+    name: 'Engenharia Informática & Telecomunicações',
+    level: 'superior',
+    cycle: 'Ensino Superior',
+    grades: ['1.º Ano (Licenciatura)', '2.º Ano (Licenciatura)', '3.º Ano (Licenciatura)', '4.º Ano (Licenciatura)', '5.º Ano (Licenciatura/Especialidade)'],
+    description: 'Engenharia de software, inteligência artificial, computação em nuvem e sistemas de telecomunicações.',
+    coordinatorName: 'Prof. João Figueiredo',
+    durationYears: 5,
+    status: 'ativo'
+  },
+  {
+    id: 'crs-dir',
+    code: 'DIR',
+    name: 'Direito & Ciências Jurídicas',
+    level: 'superior',
+    cycle: 'Ensino Superior',
+    grades: ['1.º Ano (Licenciatura)', '2.º Ano (Licenciatura)', '3.º Ano (Licenciatura)', '4.º Ano (Licenciatura)'],
+    description: 'Estudo do ordenamento jurídico, direito constitucional, civil, penal, administrativo e internacional.',
+    coordinatorName: 'Prof.ª Marta Ndalu',
+    durationYears: 5,
+    status: 'ativo'
+  }
+];
+
 const defaultAttendance: AttendanceSheet = {
   id: 'att-today',
   date: new Date().toISOString().split('T')[0],
@@ -1056,6 +1168,7 @@ export interface SchoolDatabase {
   teachers: Teacher[];
   classes: ClassRoom[];
   subjects: Subject[];
+  courses?: Course[];
   attendance: AttendanceSheet;
   pauta: ExamPauta;
   invoices: TuitionInvoice[];
@@ -1075,6 +1188,7 @@ function getInitialDb(): SchoolDatabase {
     teachers: defaultTeachers,
     classes: defaultClasses,
     subjects: defaultSubjects,
+    courses: defaultCourses,
     attendance: defaultAttendance,
     pauta: defaultPauta,
     invoices: defaultInvoices,
@@ -1093,13 +1207,29 @@ function getInitialDb(): SchoolDatabase {
         base = {
           ...base,
           ...parsed,
-          students: parsed.students && parsed.students.length > 0 ? parsed.students : defaultStudents,
-          teachers: parsed.teachers && parsed.teachers.length > 0 ? parsed.teachers : defaultTeachers,
-          classes: (parsed.classes && parsed.classes.length > 0 && parsed.classes[0].area) ? parsed.classes : defaultClasses,
-          subjects: (parsed.subjects && parsed.subjects.length > 0 && parsed.subjects[0].status) ? parsed.subjects : defaultSubjects,
-          invoices: parsed.invoices && parsed.invoices.length > 0 ? parsed.invoices : (parsed.tuitionFees || defaultInvoices),
-          books: parsed.books && parsed.books.length > 0 ? parsed.books : (parsed.libraryBooks || defaultBooks),
-          notices: parsed.notices && parsed.notices.length > 0 ? parsed.notices : defaultNotices,
+          students: (Array.isArray(parsed.students) ? parsed.students : defaultStudents).map((s: any, idx: number) => ({
+            ...s,
+            gender: s.gender || (idx % 2 === 0 ? 'Masculino' : 'Feminino'),
+            biNumber: s.biNumber || s.citizenCard || `00${4819200 + idx}LA042`,
+            nationality: s.nationality || 'Angolana',
+            birthPlace: s.birthPlace || (idx % 3 === 0 ? 'Luanda' : idx % 3 === 1 ? 'Benguela' : 'Huambo'),
+            address: s.address || 'Luanda, Angola',
+            studentPhone: s.studentPhone || '+244 923 000 000',
+            guardianRelation: s.guardianRelation || (idx % 2 === 0 ? 'Pai' : 'Mãe'),
+            previousSchool: s.previousSchool || 'Colégio São Francisco de Assis',
+            lastCompletedGrade: s.lastCompletedGrade || '9.ª Classe',
+            academicSituation: s.academicSituation || 'Transitado',
+            docBiCopy: s.docBiCopy || 'Entregue',
+            docCertificate: s.docCertificate || 'Entregue',
+            docPassPhoto: s.docPassPhoto || s.avatar || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
+          })),
+          teachers: Array.isArray(parsed.teachers) ? parsed.teachers : defaultTeachers,
+          classes: Array.isArray(parsed.classes) ? parsed.classes : defaultClasses,
+          subjects: Array.isArray(parsed.subjects) ? parsed.subjects : defaultSubjects,
+          courses: Array.isArray(parsed.courses) ? parsed.courses : defaultCourses,
+          invoices: Array.isArray(parsed.invoices) ? parsed.invoices : (parsed.tuitionFees || defaultInvoices),
+          books: Array.isArray(parsed.books) ? parsed.books : (parsed.libraryBooks || defaultBooks),
+          notices: Array.isArray(parsed.notices) ? parsed.notices : defaultNotices,
           settings: { ...defaultSettings, ...(parsed.settings || {}) }
         };
       }
@@ -1136,6 +1266,7 @@ class SchoolDatabaseService {
       students: this.db.students || [],
       teachers: this.db.teachers || [],
       classes: this.db.classes || [],
+      courses: this.db.courses || defaultCourses,
       notices: this.db.notices || []
     };
   }
@@ -1164,11 +1295,22 @@ class SchoolDatabaseService {
   public async initRemoteSync(): Promise<void> {
     try {
       this.setSyncStatus('syncing');
+      const hasLocalDb =
+        typeof window !== 'undefined' &&
+        typeof localStorage !== 'undefined' &&
+        localStorage.getItem(STORAGE_KEY) !== null;
+
+      if (hasLocalDb) {
+        // Local database already exists and is the source of truth; push to cloud in background
+        await this.pushToCloudStorage();
+        return;
+      }
+
       const res = await fetch(CLOUD_STORAGE_SYNC_URL);
       if (res.ok) {
         const remote = await res.json();
         if (remote && remote.students && Array.isArray(remote.students) && remote.students.length > 0) {
-          // Cloud database already has records, hydrate into state
+          // Cloud database has records, hydrate into state
           this.db = {
             ...this.db,
             ...remote,
@@ -1180,7 +1322,6 @@ class SchoolDatabaseService {
           this.setSyncStatus('synced');
           this.notifyLocal();
         } else {
-          // Remote database is freshly initialized or empty, seed initial data to cloud
           await this.pushToCloudStorage();
         }
       } else {
@@ -1398,47 +1539,85 @@ class SchoolDatabaseService {
     return authRes.success && authRes.user ? authRes.user : null;
   }
 
+  // Dynamic synchronization of enrolled students count in classes
+  public syncClassStudentCounts() {
+    if (!this.db.classes) return;
+    this.db.classes = this.db.classes.map((cls) => {
+      const realEnrolled = (this.db.students || []).filter(
+        (s) => String(s.classId) === String(cls.id)
+      ).length;
+      return {
+        ...cls,
+        studentCount: realEnrolled > 0 ? realEnrolled : (cls.studentCount || 0)
+      };
+    });
+  }
+
   // Students CRUD
-  public addStudent(student: Omit<Student, 'id' | 'procNumber' | 'attendanceRate' | 'currentAverage'>): Student {
+  public addStudent(
+    student: Omit<Student, 'id' | 'procNumber' | 'attendanceRate' | 'currentAverage'> & {
+      procNumber?: string;
+    }
+  ): Student {
     const count = this.db.students.length + 1;
+    const photo = student.docPassPhoto || student.avatar || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150';
     const newStudent: Student = {
       ...student,
       id: `stu-${Date.now()}`,
-      procNumber: `24${String(count).padStart(2, '0')}`,
+      procNumber: student.procNumber || `24${String(count).padStart(2, '0')}`,
+      avatar: photo,
+      docPassPhoto: photo,
       attendanceRate: 100,
       currentAverage: 15.0,
       unexcusedAbsences: 0,
       excusedAbsences: 0,
-      isTuitionPaidCurrentMonth: true,
-      disciplineGrades: [
+      isTuitionPaidCurrentMonth: student.financialStatus !== 'debito',
+      disciplineGrades: student.disciplineGrades || [
         { subject: 'Matemática A', score: 15.0, maxScore: 20 },
-        { subject: 'Física e Química A', score: 15.0, maxScore: 20 }
+        { subject: 'Física e Química A', score: 14.5, maxScore: 20 }
       ]
     };
     this.db.students = [newStudent, ...this.db.students];
+    this.syncClassStudentCounts();
     this.notify();
     return newStudent;
   }
 
   public updateStudent(id: string, updates: Partial<Student>) {
-    this.db.students = this.db.students.map((s) => (s.id === id ? { ...s, ...updates } : s));
+    this.db.students = this.db.students.map((s) => {
+      if (s.id !== id) return s;
+      const updated = { ...s, ...updates };
+      if (updates.docPassPhoto && !updates.avatar) {
+        updated.avatar = updates.docPassPhoto;
+      } else if (updates.avatar && !updates.docPassPhoto) {
+        updated.docPassPhoto = updates.avatar;
+      }
+      return updated;
+    });
+    this.syncClassStudentCounts();
     this.notify();
   }
 
   public deleteStudent(id: string) {
     this.db.students = this.db.students.filter((s) => s.id !== id);
+    this.syncClassStudentCounts();
     this.notify();
   }
 
   // Teachers CRUD
-  public addTeacher(teacher: Omit<Teacher, 'id' | 'agentNumber' | 'rating' | 'evaluationsCount'>): Teacher {
+  public addTeacher(
+    teacher: Omit<Teacher, 'id' | 'agentNumber' | 'rating' | 'evaluationsCount'> & {
+      agentNumber?: string;
+    }
+  ): Teacher {
     const count = this.db.teachers.length + 1;
     const newTeacher: Teacher = {
       ...teacher,
       id: `prof-${Date.now()}`,
-      agentNumber: `AG-${9000 + count}`,
+      agentNumber: teacher.agentNumber || `AG-${9000 + count}`,
       rating: 5.0,
-      evaluationsCount: 1
+      evaluationsCount: 1,
+      allocatedClasses: teacher.allocatedClasses || []
     };
     this.db.teachers = [newTeacher, ...this.db.teachers];
     this.notify();
@@ -1447,6 +1626,54 @@ class SchoolDatabaseService {
 
   public updateTeacher(id: string, updates: Partial<Teacher>) {
     this.db.teachers = this.db.teachers.map((t) => (t.id === id ? { ...t, ...updates } : t));
+    // If teacher's name was changed, sync to classes where this teacher is assigned as Director
+    if (updates.name && this.db.classes) {
+      this.db.classes = this.db.classes.map((c) =>
+        c.headTeacherId === id ? { ...c, headTeacherName: updates.name! } : c
+      );
+    }
+    this.notify();
+  }
+
+  public deleteTeacher(id: string): { success: boolean; unlinkedClassesCount: number } {
+    let unlinkedCount = 0;
+    if (this.db.classes) {
+      this.db.classes = this.db.classes.map((c) => {
+        if (c.headTeacherId === id) {
+          unlinkedCount++;
+          return { ...c, headTeacherId: '', headTeacherName: 'A designar' };
+        }
+        return c;
+      });
+    }
+    this.db.teachers = this.db.teachers.filter((t) => t.id !== id);
+    this.notify();
+    return { success: true, unlinkedClassesCount: unlinkedCount };
+  }
+
+  public clearStudents() {
+    this.db.students = [];
+    this.syncClassStudentCounts();
+    this.notify();
+  }
+
+  public clearTeachers() {
+    this.db.teachers = [];
+    this.notify();
+  }
+
+  public clearClasses() {
+    this.db.classes = [];
+    this.notify();
+  }
+
+  public clearSubjects() {
+    this.db.subjects = [];
+    this.notify();
+  }
+
+  public clearCourses() {
+    this.db.courses = [];
     this.notify();
   }
 
@@ -1457,18 +1684,30 @@ class SchoolDatabaseService {
       id: `turma-${Date.now()}`
     };
     this.db.classes = [...this.db.classes, newClass];
+    this.syncClassStudentCounts();
     this.notify();
     return newClass;
   }
 
   public updateClass(id: string, updates: Partial<ClassRoom>) {
     this.db.classes = this.db.classes.map((c) => (c.id === id ? { ...c, ...updates } : c));
+    this.syncClassStudentCounts();
     this.notify();
   }
 
-  public deleteClass(id: string) {
+  public deleteClass(id: string): { success: boolean; error?: string } {
+    const enrolledStudents = (this.db.students || []).filter(
+      (s) => String(s.classId) === String(id)
+    );
+    if (enrolledStudents.length > 0) {
+      return {
+        success: false,
+        error: `A turma possui ${enrolledStudents.length} aluno(s) matriculado(s) ativo(s) no sistema. Transfira os alunos para outra turma antes de eliminar.`
+      };
+    }
     this.db.classes = this.db.classes.filter((c) => c.id !== id);
     this.notify();
+    return { success: true };
   }
 
   // Subjects CRUD
@@ -1477,18 +1716,41 @@ class SchoolDatabaseService {
       ...subject,
       id: `sub-${Date.now()}`
     };
-    this.db.subjects = [...this.db.subjects, newSubject];
+    this.db.subjects = [...(this.db.subjects || defaultSubjects), newSubject];
     this.notify();
     return newSubject;
   }
 
   public updateSubject(id: string, updates: Partial<Subject>) {
-    this.db.subjects = this.db.subjects.map((s) => (s.id === id ? { ...s, ...updates } : s));
+    this.db.subjects = (this.db.subjects || defaultSubjects).map((s) => (s.id === id ? { ...s, ...updates } : s));
     this.notify();
   }
 
   public deleteSubject(id: string) {
-    this.db.subjects = this.db.subjects.filter((s) => s.id !== id);
+    this.db.subjects = (this.db.subjects || defaultSubjects).filter((s) => s.id !== id);
+    this.notify();
+  }
+
+  // Courses CRUD
+  public addCourse(course: Omit<Course, 'id'>): Course {
+    const newCourse: Course = {
+      ...course,
+      id: `crs-${Date.now()}`
+    };
+    this.db.courses = [...(this.db.courses || defaultCourses), newCourse];
+    this.notify();
+    return newCourse;
+  }
+
+  public updateCourse(id: string, updates: Partial<Course>) {
+    this.db.courses = (this.db.courses || defaultCourses).map((c) =>
+      c.id === id ? { ...c, ...updates } : c
+    );
+    this.notify();
+  }
+
+  public deleteCourse(id: string) {
+    this.db.courses = (this.db.courses || defaultCourses).filter((c) => c.id !== id);
     this.notify();
   }
 

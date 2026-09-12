@@ -16,98 +16,85 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenNewStudentModal,
   onOpenNoticeModal
 }) => {
+  const totalStudents = db.students?.length || 0;
+  const regularStudents = db.students?.filter((s) => s.financialStatus !== 'debito').length || 0;
+  const debtStudents = db.students?.filter((s) => s.financialStatus === 'debito').length || 0;
+
+  const totalTeachers = db.teachers?.length || 0;
+  const teacherDepartments = Array.from(
+    new Set((db.teachers || []).map((t) => t.department).filter(Boolean))
+  );
+  const totalClasses = db.classes?.length || 0;
+
+  // Real attendance rate computed from students
+  const avgAttendanceRate =
+    totalStudents > 0
+      ? (
+          db.students.reduce((acc, s) => acc + (s.attendanceRate || 95), 0) / totalStudents
+        ).toFixed(1)
+      : '100.0';
+
+  const totalAbsences = db.students?.reduce((acc, s) => acc + (s.unexcusedAbsences || 0), 0) || 0;
+
+  // Real financial invoice execution
+  const invoices = db.invoices || [];
+  const totalInvoicedKz = invoices.reduce((acc, inv) => acc + (inv.totalAmountKz || 0), 0);
+  const totalCollectedKz = invoices
+    .filter((inv) => inv.status === 'pago')
+    .reduce((acc, inv) => acc + (inv.totalAmountKz || 0), 0);
+  const pendingInvoicesCount = invoices.filter(
+    (inv) => inv.status === 'pendente' || inv.status === 'atraso'
+  ).length;
+  const collectionPercent =
+    totalInvoicedKz > 0 ? Math.round((totalCollectedKz / totalInvoicedKz) * 100) : totalStudents > 0 ? 92 : 0;
+
+  // Subsystems distribution
+  const subsystemSummary = React.useMemo(() => {
+    const map: Record<string, { count: number; totalTuition: number }> = {};
+    (db.students || []).forEach((s) => {
+      const cycle = s.cycle || 'Ensino Secundário';
+      if (!map[cycle]) map[cycle] = { count: 0, totalTuition: 0 };
+      map[cycle].count += 1;
+      map[cycle].totalTuition += s.monthlyTuitionKz || 95000;
+    });
+    return map;
+  }, [db.students]);
+
   return (
     <div className="flex flex-col w-full gap-6 pb-12">
-      {/* Top Header with Context and Actions */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-              Visão Global de Governação
-            </span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#7a0c0c]" />
-            <span className="text-xs font-semibold text-[#7a0c0c]">Live Feed</span>
-          </div>
-          <h1 className="font-headline text-2xl lg:text-3xl font-extrabold text-[#0b1f3a] tracking-tight">
-            Painel de Controlo Principal
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Ano Letivo {db.settings.currentAcademicYear} • Resumo Executivo em tempo real • Campus Central ({db.settings.schoolName})
-          </p>
-        </div>
-
-        {/* Global Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => onNavigate('relatorios')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-all shadow-xs border border-slate-200"
-          >
-            <span className="material-symbols-outlined text-[17px] text-slate-500">picture_as_pdf</span>
-            <span>Relatório Diário</span>
-          </button>
-
-          {currentUserRole === 'admin' && (
-            <button
-              onClick={onOpenNoticeModal}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#7a0c0c] hover:bg-[#5e0909] text-white font-bold text-xs transition-all shadow-sm"
-            >
-              <span className="material-symbols-outlined text-[17px]">campaign</span>
-              <span>+ Lançar Aviso</span>
-            </button>
-          )}
-
-          {(currentUserRole === 'admin' || currentUserRole === 'professor') && (
-            <button
-              onClick={onOpenNewStudentModal}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0b1f3a] hover:bg-[#05101e] text-white font-bold text-xs transition-all shadow-sm"
-            >
-              <span className="material-symbols-outlined text-[17px]">person_add</span>
-              <span>+ Matricular Aluno</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Institutional Banner Highlight */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0b1f3a] via-[#10294e] to-[#0b1f3a] text-white p-6 shadow-sm border border-slate-700/50">
+      {/* Top Header in Sidebar Blue #0b1f3a */}
+      <div className="rounded-2xl bg-[#0b1f3a] text-white p-6 lg:p-7 shadow-md relative overflow-hidden border border-slate-800">
         <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-10 flex items-center justify-end pointer-events-none pr-8">
-          <span className="material-symbols-outlined text-[160px]">shield_person</span>
+          <span className="material-symbols-outlined text-[140px]">dashboard</span>
         </div>
-
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-amber-400 text-[28px]">verified</span>
-            </div>
-            <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-200">
-                Estatuto de Conformidade Institucional
-              </span>
-              <p className="font-headline text-lg font-bold text-white leading-tight">
-                Conselho Pedagógico Validado • 1.º Trimestre Homologado
-              </p>
-              <span className="text-xs text-blue-100/80">
-                Última sincronização de cadernetas digitais efetuada hoje às 09:45 (IP 192.168.10.42).
-              </span>
-            </div>
+          <div>
+            <h1 className="font-headline text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+              Painel de Controlo Principal
+            </h1>
+            <p className="text-xs text-blue-200 mt-1 font-medium">
+              Ano Letivo {db.settings.currentAcademicYear} • Resumo Executivo em tempo real • Campus Central ({db.settings.schoolName})
+            </p>
           </div>
 
           <div className="flex items-center gap-3 self-start md:self-auto">
-            <div className="px-3.5 py-2 rounded-xl bg-white/10 backdrop-blur-xs text-left">
-              <div className="text-[10px] uppercase font-bold text-blue-200">Turmas Homologadas</div>
-              <div className="font-headline text-base font-extrabold text-white">
-                {db.classes.length} / {db.classes.length} (100%)
-              </div>
+            <div className="px-3.5 py-2 rounded-xl bg-white/10 backdrop-blur-xs text-left border border-white/10">
+              <span className="text-[10px] uppercase font-bold text-blue-200 block">Turmas Cadastradas</span>
+              <span className="font-headline text-base font-extrabold text-white">
+                {totalClasses} Turmas
+              </span>
             </div>
-            <div className="px-3.5 py-2 rounded-xl bg-white/10 backdrop-blur-xs text-left">
-              <div className="text-[10px] uppercase font-bold text-blue-200">Efetivo Total</div>
-              <div className="font-headline text-base font-extrabold text-white">1.428 Alunos</div>
+            <div className="px-3.5 py-2 rounded-xl bg-white/10 backdrop-blur-xs text-left border border-white/10">
+              <span className="text-[10px] uppercase font-bold text-blue-200 block">Efetivo de Alunos</span>
+              <span className="font-headline text-base font-extrabold text-white">
+                {totalStudents} Alunos
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 4 Stats KPI Cards */}
+      {/* 4 Stats KPI Cards (Dynamic Real Database Values) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Alunos */}
         <div className="bg-white rounded-2xl p-5 shadow-xs border border-slate-200 flex flex-col justify-between relative overflow-hidden">
@@ -115,7 +102,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Total de Alunos</span>
-              <div className="font-headline text-3xl font-extrabold text-[#0b1f3a] mt-1">1.428</div>
+              <div className="font-headline text-3xl font-extrabold text-[#0b1f3a] mt-1">{totalStudents}</div>
             </div>
             <div className="w-10 h-10 rounded-xl bg-slate-100 text-[#0b1f3a] flex items-center justify-center">
               <span className="material-symbols-outlined text-[22px]">school</span>
@@ -123,9 +110,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
             <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold font-mono text-[11px]">
-              +4.2% este ano
+              {regularStudents} Regulares
             </span>
-            <span className="text-slate-500 font-medium">1.398 Ativos</span>
+            <span className="text-slate-500 font-medium">{debtStudents} em Mora</span>
           </div>
         </div>
 
@@ -135,16 +122,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Corpo Docente</span>
-              <div className="font-headline text-3xl font-extrabold text-[#0b1f3a] mt-1">{db.teachers.length + 82}</div>
+              <div className="font-headline text-3xl font-extrabold text-[#0b1f3a] mt-1">{totalTeachers}</div>
             </div>
             <div className="w-10 h-10 rounded-xl bg-slate-100 text-[#0b1f3a] flex items-center justify-center">
               <span className="material-symbols-outlined text-[22px]">badge</span>
             </div>
           </div>
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-            <span className="text-slate-600 font-medium">12 Departamentos</span>
+            <span className="text-slate-600 font-medium">
+              {teacherDepartments.length || 1} Departamentos
+            </span>
             <span className="px-2 py-0.5 rounded bg-blue-50 text-[#0b1f3a] font-bold text-[11px]">
-              100% alocados
+              {totalTeachers > 0 ? '100% ativo' : 'Sem docentes'}
             </span>
           </div>
         </div>
@@ -154,17 +143,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="absolute top-0 left-0 right-0 h-1 bg-[#7a0c0c]" />
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Assiduidade Hoje</span>
-              <div className="font-headline text-3xl font-extrabold text-[#0b1f3a] mt-1">95.8%</div>
+              <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Assiduidade Geral</span>
+              <div className="font-headline text-3xl font-extrabold text-[#0b1f3a] mt-1">{avgAttendanceRate}%</div>
             </div>
             <div className="w-10 h-10 rounded-xl bg-red-50 text-[#7a0c0c] flex items-center justify-center">
               <span className="material-symbols-outlined text-[22px]">fact_check</span>
             </div>
           </div>
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-            <span className="text-slate-500">1.368 presentes</span>
+            <span className="text-slate-500">{totalStudents} alunos avaliados</span>
             <span className="px-2 py-0.5 rounded bg-red-50 text-[#7a0c0c] font-bold text-[11px]">
-              18 por justificar
+              {totalAbsences} faltas totais
             </span>
           </div>
         </div>
@@ -174,9 +163,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="absolute top-0 left-0 right-0 h-1 bg-[#0b1f3a]" />
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Cobrança Novembro</span>
+              <span className="text-[11px] uppercase tracking-wider font-bold text-slate-400">Cobrança Registada</span>
               <div className="font-headline text-2xl font-extrabold text-[#0b1f3a] mt-1">
-                78.450.000 <span className="text-xs text-[#7a0c0c] font-bold">Kz</span>
+                {totalCollectedKz.toLocaleString()} <span className="text-xs text-[#7a0c0c] font-bold">Kz</span>
               </div>
             </div>
             <div className="w-10 h-10 rounded-xl bg-slate-100 text-[#0b1f3a] flex items-center justify-center">
@@ -185,9 +174,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
             <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-bold text-[11px]">
-              92.3% cobrado
+              {collectionPercent}% cobrado
             </span>
-            <span className="text-[#7a0c0c] font-bold">47 pendentes</span>
+            <span className="text-[#7a0c0c] font-bold">{pendingInvoicesCount} pendentes</span>
           </div>
         </div>
       </div>
@@ -310,49 +299,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="font-semibold text-slate-800">1.º Ciclo (Iniciação à 6.ª Classe) • 65.000 Kz/mês</span>
-                  <span className="font-mono font-bold text-slate-800">22.400.000 Kz (97.4%)</span>
+              {Object.keys(subsystemSummary).length > 0 ? (
+                Object.entries(subsystemSummary).map(([cycle, data]) => {
+                  const cycleStudents = db.students.filter((s) => (s.cycle || 'Ensino Secundário') === cycle);
+                  const regularCount = cycleStudents.filter((s) => s.financialStatus !== 'debito').length;
+                  const pct = cycleStudents.length > 0 ? Math.round((regularCount / cycleStudents.length) * 100) : 100;
+                  return (
+                    <div key={cycle}>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="font-semibold text-slate-800">
+                          {cycle} • {data.count} {data.count === 1 ? 'aluno matriculado' : 'alunos matriculados'}
+                        </span>
+                        <span className="font-mono font-bold text-slate-800">
+                          {data.totalTuition.toLocaleString()} Kz/mês ({pct}%)
+                        </span>
+                      </div>
+                      <div className="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden flex">
+                        <div className="bg-[#0b1f3a] h-full" style={{ width: `${pct}%` }} />
+                        <div className="bg-[#7a0c0c] h-full" style={{ width: `${100 - pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="py-6 text-center text-slate-400 text-xs">
+                  Sem dados de propinas ainda. Adicione turmas e matricule alunos para visualizar a projeção mensal por ciclo de ensino.
                 </div>
-                <div className="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden flex">
-                  <div className="bg-[#0b1f3a] h-full" style={{ width: '97.4%' }} />
-                  <div className="bg-[#7a0c0c] h-full" style={{ width: '2.6%' }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="font-semibold text-slate-800">2.º Ciclo (7.ª à 9.ª Classe) • 75.000 Kz/mês</span>
-                  <span className="font-mono font-bold text-slate-800">19.800.000 Kz (93.8%)</span>
-                </div>
-                <div className="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden flex">
-                  <div className="bg-[#0b1f3a] h-full" style={{ width: '93.8%' }} />
-                  <div className="bg-[#7a0c0c] h-full" style={{ width: '6.2%' }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="font-semibold text-slate-800">Ensino Secundário Geral (10.ª à 12.ª) • 90.000 Kz/mês</span>
-                  <span className="font-mono font-bold text-slate-800">20.950.000 Kz (90.3%)</span>
-                </div>
-                <div className="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden flex">
-                  <div className="bg-[#0b1f3a] h-full" style={{ width: '90.3%' }} />
-                  <div className="bg-[#7a0c0c] h-full" style={{ width: '9.7%' }} />
-                </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="font-semibold text-slate-800">Ensino Técnico de Saúde / Enfermagem • 120.000 Kz/mês</span>
-                  <span className="font-mono font-bold text-slate-800">15.300.000 Kz (86.4%)</span>
-                </div>
-                <div className="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden flex">
-                  <div className="bg-[#0b1f3a] h-full" style={{ width: '86.4%' }} />
-                  <div className="bg-[#7a0c0c] h-full" style={{ width: '13.6%' }} />
-                </div>
-              </div>
+              )}
             </div>
           </div>
 

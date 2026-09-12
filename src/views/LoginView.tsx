@@ -51,10 +51,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           {/* Top: Brand & Crest */}
           <div className="relative z-10">
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 bg-white rounded-xl p-2 shadow-md flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[#0b1f3a] text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                  school
-                </span>
+              <div className="w-14 h-14 bg-white rounded-xl p-1.5 shadow-md flex items-center justify-center shrink-0 overflow-hidden">
+                <img
+                  src="/school_emblem.png"
+                  alt="BandMed Emblema"
+                  className="w-full h-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
               </div>
               <div className="flex flex-col">
                 <span className="font-headline font-extrabold text-xl tracking-wider text-white">BANDMED</span>
@@ -65,18 +68,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             </div>
 
             <div className="mt-8 lg:mt-12">
-              <span className="inline-flex items-center px-3 py-1 rounded-full bg-white/10 text-blue-200 text-xs font-semibold backdrop-blur-xs">
-                <span className="material-symbols-outlined text-[16px] mr-1.5 text-amber-400" style={{ fontVariationSettings: "'FILL' 1" }}>
-                  verified
-                </span>
-                Ano Letivo 2024 / 2025
-              </span>
-              <h1 className="mt-4 font-headline text-2xl lg:text-3xl font-extrabold text-white tracking-tight leading-tight">
+              <h1 className="font-headline text-2xl lg:text-3xl font-extrabold text-white tracking-tight leading-tight">
                 Gestão Escolar, Rigor e Transparência.
               </h1>
-              <p className="mt-3 text-sm text-slate-300 leading-relaxed font-body">
-                Portal unificado de governação pedagógica, registo de assiduidade, planeamento letivo e acompanhamento financeiro integrado em Kwanza (Kz).
-              </p>
             </div>
           </div>
 
@@ -101,12 +95,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               </div>
             </div>
           </div>
-
-          {/* Footer Info */}
-          <div className="relative z-10 flex items-center justify-between text-xs text-slate-400 font-mono">
-            <span>Direção de Tecnologias Educativas</span>
-            <span className="bg-white/10 px-2 py-0.5 rounded text-slate-200">v3.4.2 Enterprise</span>
-          </div>
         </div>
 
         {/* Right Authentication Panel */}
@@ -118,10 +106,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 <p className="text-xs text-slate-500 mt-1">
                   Introduza os seus dados de acesso institucionais para entrar na plataforma.
                 </p>
-              </div>
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
-                <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                <span>Portal Ativo</span>
               </div>
             </div>
 
@@ -248,8 +232,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           <div className="mt-8 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
             <div className="flex items-center gap-3">
               <span>© 2025 BandMed</span>
-              <span>•</span>
-              <span>Decreto Executivo n.º 412/18</span>
               <span>•</span>
               <span>Ambiente Seguro SSL</span>
             </div>

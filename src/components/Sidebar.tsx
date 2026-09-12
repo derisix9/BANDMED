@@ -49,10 +49,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Brand Header */}
           <div className="h-16 px-4 flex items-center justify-between bg-black/20 border-b border-slate-700/50">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center p-1 shadow-sm shrink-0">
-                <span className="material-symbols-outlined text-[#0b1f3a] text-[22px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                  school
-                </span>
+              <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center p-1 shadow-sm shrink-0 overflow-hidden">
+                <img
+                  src="/school_emblem.png"
+                  alt="BandMed Emblema"
+                  className="w-full h-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
               </div>
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1.5">

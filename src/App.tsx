@@ -5,6 +5,7 @@ import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
 import { SqlExportModal } from './components/SqlExportModal';
 import { ReportCardModal } from './components/ReportCardModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoginView } from './views/LoginView';
 import { DashboardView } from './views/DashboardView';
 import { AlunosView } from './views/AlunosView';
@@ -29,7 +30,11 @@ export default function App() {
     return dbService.getCurrentUser();
   });
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return Boolean(localStorage.getItem('bandmed_session_user'));
+    if (typeof window !== 'undefined') {
+      const explicitLogout = sessionStorage.getItem('bandmed_explicit_logout');
+      if (explicitLogout === 'true') return false;
+    }
+    return true;
   });
   const [currentView, setCurrentView] = useState<string>('dashboard');
   const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
@@ -38,7 +43,7 @@ export default function App() {
   const [isSqlModalOpen, setIsSqlModalOpen] = useState<boolean>(false);
   const [reportCardStudent, setReportCardStudent] = useState<Student | null>(null);
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState<boolean>(false);
-  const [attendanceClassId, setAttendanceClassId] = useState<number | undefined>(undefined);
+  const [attendanceClassId, setAttendanceClassId] = useState<any>(undefined);
 
   // Subscribe to reactive database changes
   useEffect(() => {
@@ -49,6 +54,9 @@ export default function App() {
   }, []);
 
   const handleLoginSuccess = (user: User) => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('bandmed_explicit_logout');
+    }
     setCurrentUser(user);
     setIsAuthenticated(true);
     setCurrentView('dashboard');
@@ -56,6 +64,9 @@ export default function App() {
 
   const handleLogout = () => {
     dbService.logout();
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('bandmed_explicit_logout', 'true');
+    }
     setIsAuthenticated(false);
   };
 
@@ -98,81 +109,83 @@ export default function App() {
       {/* Main Content Area */}
       <main className="lg:pl-64 pt-20 px-4 lg:px-8 flex-1 transition-all duration-300">
         <div className="max-w-7xl mx-auto">
-          {currentView === 'dashboard' && (
-            <DashboardView
-              db={db}
-              onNavigate={setCurrentView}
-              currentUserRole={currentUser.role}
-              onOpenNewStudentModal={() => setCurrentView('alunos')}
-              onOpenNoticeModal={() => {
-                setCurrentView('mural_biblioteca');
-                setIsNoticeModalOpen(true);
-              }}
-            />
-          )}
+          <ErrorBoundary onReset={() => setCurrentView('dashboard')}>
+            {currentView === 'dashboard' && (
+              <DashboardView
+                db={db}
+                onNavigate={setCurrentView}
+                currentUserRole={currentUser.role}
+                onOpenNewStudentModal={() => setCurrentView('alunos')}
+                onOpenNoticeModal={() => {
+                  setCurrentView('mural_biblioteca');
+                  setIsNoticeModalOpen(true);
+                }}
+              />
+            )}
 
-          {currentView === 'alunos' && (
-            <AlunosView
-              db={db}
-              currentUserRole={currentUser.role}
-              onOpenReportCard={(student) => setReportCardStudent(student)}
-            />
-          )}
+            {currentView === 'alunos' && (
+              <AlunosView
+                db={db}
+                currentUserRole={currentUser.role}
+                onOpenReportCard={(student) => setReportCardStudent(student)}
+              />
+            )}
 
-          {currentView === 'professores' && (
-            <ProfessoresView db={db} currentUserRole={currentUser.role} />
-          )}
+            {currentView === 'professores' && (
+              <ProfessoresView db={db} currentUserRole={currentUser.role} />
+            )}
 
-          {currentView === 'turmas' && (
-            <TurmasView
-              db={db}
-              currentUserRole={currentUser.role}
-              onNavigateToAttendance={(classId) => {
-                setAttendanceClassId(classId);
-                setCurrentView('assiduidade');
-              }}
-              onNavigateToStudents={() => setCurrentView('alunos')}
-              onNavigateToPautas={() => setCurrentView('pautas')}
-            />
-          )}
+            {currentView === 'turmas' && (
+              <TurmasView
+                db={db}
+                currentUserRole={currentUser.role}
+                onNavigateToAttendance={(classId) => {
+                  setAttendanceClassId(classId);
+                  setCurrentView('assiduidade');
+                }}
+                onNavigateToStudents={() => setCurrentView('alunos')}
+                onNavigateToPautas={() => setCurrentView('pautas')}
+              />
+            )}
 
-          {currentView === 'assiduidade' && (
-            <AssiduidadeView
-              db={db}
-              currentUserRole={currentUser.role}
-              initialClassId={attendanceClassId}
-            />
-          )}
+            {currentView === 'assiduidade' && (
+              <AssiduidadeView
+                db={db}
+                currentUserRole={currentUser.role}
+                initialClassId={attendanceClassId}
+              />
+            )}
 
-          {currentView === 'pautas' && (
-            <PautasView db={db} currentUserRole={currentUser.role} />
-          )}
+            {currentView === 'pautas' && (
+              <PautasView db={db} currentUserRole={currentUser.role} />
+            )}
 
-          {currentView === 'propinas' && (
-            <PropinasView db={db} currentUserRole={currentUser.role} />
-          )}
+            {currentView === 'propinas' && (
+              <PropinasView db={db} currentUserRole={currentUser.role} />
+            )}
 
-          {currentView === 'mural_biblioteca' && (
-            <AvisosEBibliotecaView
-              db={db}
-              currentUserRole={currentUser.role}
-              isNoticeModalOpen={isNoticeModalOpen}
-              setIsNoticeModalOpen={setIsNoticeModalOpen}
-            />
-          )}
+            {currentView === 'mural_biblioteca' && (
+              <AvisosEBibliotecaView
+                db={db}
+                currentUserRole={currentUser.role}
+                isNoticeModalOpen={isNoticeModalOpen}
+                setIsNoticeModalOpen={setIsNoticeModalOpen}
+              />
+            )}
 
-          {currentView === 'relatorios' && (
-            <RelatoriosView db={db} currentUserRole={currentUser.role} />
-          )}
+            {currentView === 'relatorios' && (
+              <RelatoriosView db={db} currentUserRole={currentUser.role} />
+            )}
 
-          {currentView === 'configuracoes' && (
-            <ConfiguracoesView
-              db={db}
-              currentUserRole={currentUser.role}
-              onOpenSqlExport={() => setIsSqlModalOpen(true)}
-              onResetData={handleResetData}
-            />
-          )}
+            {currentView === 'configuracoes' && (
+              <ConfiguracoesView
+                db={db}
+                currentUserRole={currentUser.role}
+                onOpenSqlExport={() => setIsSqlModalOpen(true)}
+                onResetData={handleResetData}
+              />
+            )}
+          </ErrorBoundary>
         </div>
       </main>
 

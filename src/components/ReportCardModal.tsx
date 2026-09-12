@@ -32,7 +32,7 @@ export const ReportCardModal: React.FC<ReportCardModalProps> = ({ student, db, o
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col my-8 border border-slate-300 print:m-0 print:border-none print:shadow-none">
+      <div className="bg-white rounded-none max-w-4xl w-full shadow-2xl overflow-hidden flex flex-col my-8 border border-slate-400 print:m-0 print:border-none print:shadow-none">
         {/* Top Control Bar (Hidden on print) */}
         <div className="px-6 py-3.5 bg-[#0b1f3a] text-white flex items-center justify-between print:hidden">
           <div className="flex items-center gap-2">
@@ -42,14 +42,14 @@ export const ReportCardModal: React.FC<ReportCardModalProps> = ({ student, db, o
           <div className="flex items-center gap-3">
             <button
               onClick={handlePrint}
-              className="px-3.5 py-1.5 rounded-lg bg-[#7a0c0c] hover:bg-[#5e0909] text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+              className="px-3.5 py-1.5 rounded-none bg-[#7a0c0c] hover:bg-[#5e0909] text-white font-bold text-xs flex items-center gap-1.5 transition-colors border border-[#7a0c0c] cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px]">print</span>
               <span>Imprimir / Guardar PDF</span>
             </button>
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-white p-1 rounded"
+              className="text-slate-400 hover:text-white p-1 rounded-none cursor-pointer"
             >
               <span className="material-symbols-outlined text-[20px]">close</span>
             </button>
@@ -61,8 +61,13 @@ export const ReportCardModal: React.FC<ReportCardModalProps> = ({ student, db, o
           {/* Official Letterhead */}
           <div className="text-center border-b-2 border-[#0b1f3a] pb-6 mb-6">
             <div className="flex items-center justify-center gap-3 mb-2">
-              <div className="w-12 h-12 rounded-lg bg-[#0b1f3a] text-white flex items-center justify-center p-1">
-                <span className="material-symbols-outlined text-[30px]">school</span>
+              <div className="w-12 h-12 rounded-lg bg-white border border-slate-200 flex items-center justify-center p-1 shadow-xs overflow-hidden">
+                <img
+                  src="/school_emblem.png"
+                  alt="BandMed Emblema"
+                  className="w-full h-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
               </div>
             </div>
             <h2 className="text-xs uppercase tracking-widest font-bold text-slate-600 font-sans">
@@ -77,28 +82,42 @@ export const ReportCardModal: React.FC<ReportCardModalProps> = ({ student, db, o
             <p className="text-[11px] text-slate-500 font-sans">
               {db.settings.address} • Contacto: {db.settings.phone}
             </p>
-            <div className="inline-block mt-3 px-4 py-1 rounded bg-slate-100 border border-slate-300 font-sans font-bold text-xs uppercase tracking-wider text-[#7a0c0c]">
+            <div className="inline-block mt-3 px-4 py-1 bg-slate-100 border border-slate-300 font-sans font-bold text-xs uppercase tracking-wider text-[#7a0c0c]">
               Boletim Informativo de Avaliação — 1.º Trimestre ({db.settings.currentAcademicYear})
             </div>
           </div>
 
-          {/* Student Identifiers Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200 mb-6 font-sans text-xs">
-            <div>
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">Nome do Aluno</span>
-              <strong className="text-[#0b1f3a] text-sm block">{student.name}</strong>
+          {/* Student Identifiers Grid com Foto Tipo Passe Oficial */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-slate-50 border border-slate-300 mb-6 font-sans text-xs">
+            <div className="w-16 h-20 bg-slate-200 border-2 border-[#0b1f3a] overflow-hidden shrink-0">
+              <img
+                src={student.docPassPhoto || student.avatar || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150'}
+                alt={student.name}
+                className="w-full h-full object-cover object-center"
+              />
             </div>
-            <div>
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">Processo Individual</span>
-              <strong className="font-mono text-slate-800 block">#{student.procNumber}</strong>
-            </div>
-            <div>
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">Turma & Sala</span>
-              <strong className="text-slate-800 block">{studentClass?.name || '10º Ano A'} ({studentClass?.room})</strong>
-            </div>
-            <div>
-              <span className="text-[10px] text-slate-400 uppercase font-bold block">Diretor de Turma</span>
-              <strong className="text-slate-800 block">Prof. João Figueiredo</strong>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1 w-full">
+              <div>
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Nome do Aluno</span>
+                <strong className="text-[#0b1f3a] text-sm block">{student.name}</strong>
+                <span className="text-[10px] text-slate-500 font-semibold">{student.gender === 'Feminino' || student.gender === 'F' ? 'Feminino' : 'Masculino'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Processo & N.º BI</span>
+                <strong className="font-mono text-slate-800 block">Proc. #{student.procNumber}</strong>
+                <span className="font-mono text-[11px] text-slate-600 block">BI: {student.biNumber || student.citizenCard || 'Pendente'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Turma & Sala</span>
+                <strong className="text-slate-800 block">{studentClass?.name || '10º Ano A'} ({studentClass?.room})</strong>
+                <span className="text-[10px] text-slate-500 block">{studentClass?.shift || 'Manhã'}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Encarregado / Grau</span>
+                <strong className="text-slate-800 block">{student.guardianName || 'Não registado'}</strong>
+                <span className="text-[10px] text-slate-600 font-bold block">{student.guardianRelation || 'Encarregado'} • {student.guardianPhone}</span>
+              </div>
             </div>
           </div>
 

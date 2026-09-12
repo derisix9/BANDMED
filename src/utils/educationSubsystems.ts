@@ -1,4 +1,4 @@
-import { EducationLevelId, EducationSubsystem } from '../types';
+import { EducationLevelId, EducationSubsystem, Subject } from '../types';
 
 export type { EducationLevelId, EducationSubsystem };
 
@@ -15,6 +15,9 @@ export const ALL_EDUCATION_SUBSYSTEMS: EducationSubsystem[] = [
       'Iniciação (5 anos)'
     ],
     defaultAreas: [
+      'Desenvolvimento Infantil & Psicomotricidade'
+    ],
+    coursesOrAreas: [
       'Desenvolvimento Infantil & Psicomotricidade'
     ],
     regime: 'Monodocência / Educador de Infância',
@@ -37,6 +40,9 @@ export const ALL_EDUCATION_SUBSYSTEMS: EducationSubsystem[] = [
     defaultAreas: [
       'Ensino Primário Geral'
     ],
+    coursesOrAreas: [
+      'Ensino Primário Geral'
+    ],
     regime: 'Monodocência até à 4.ª classe / Pluridocência na 5.ª e 6.ª',
     icon: 'school'
   },
@@ -57,6 +63,10 @@ export const ALL_EDUCATION_SUBSYSTEMS: EducationSubsystem[] = [
       'Ensino Geral Unificado',
       'Educação de Jovens e Adultos (EJA)'
     ],
+    coursesOrAreas: [
+      'Ensino Geral Unificado',
+      'Educação de Jovens e Adultos (EJA)'
+    ],
     regime: 'Pluridocência por Disciplinas Curriculares',
     icon: 'menu_book'
   },
@@ -73,6 +83,18 @@ export const ALL_EDUCATION_SUBSYSTEMS: EducationSubsystem[] = [
       '13.ª Classe (Técnico-Profissional)'
     ],
     defaultAreas: [
+      'Ciências Físicas e Biológicas',
+      'Ciências Económicas e Jurídicas',
+      'Ciências Humanas e Sociais',
+      'Artes Visuais & Multimédia',
+      'Técnico de Enfermagem Geral',
+      'Técnico de Análises Clínicas',
+      'Informática de Gestão & Redes',
+      'Contabilidade e Gestão',
+      'Eletrotecnia e Instalações Elétricas',
+      'Construção Civil'
+    ],
+    coursesOrAreas: [
       'Ciências Físicas e Biológicas',
       'Ciências Económicas e Jurídicas',
       'Ciências Humanas e Sociais',
@@ -106,6 +128,17 @@ export const ALL_EDUCATION_SUBSYSTEMS: EducationSubsystem[] = [
       '2.º Ano (Mestrado)'
     ],
     defaultAreas: [
+      'Medicina Geral',
+      'Direito & Ciências Jurídicas',
+      'Engenharia Informática & Telecomunicações',
+      'Gestão de Empresas & Finanças',
+      'Economia',
+      'Psicologia Clínica',
+      'Ciências Farmacêuticas',
+      'Arquitetura e Urbanismo',
+      'Engenharia Civil'
+    ],
+    coursesOrAreas: [
       'Medicina Geral',
       'Direito & Ciências Jurídicas',
       'Engenharia Informática & Telecomunicações',
@@ -154,10 +187,49 @@ export function getAvailableGrades(selectedIds?: EducationLevelId[]): string[] {
  * Retorna todas as áreas/cursos disponíveis com base nos subsistemas ativos.
  * Opcionalmente filtra de acordo com a classe selecionada.
  */
+/**
+ * Normaliza o texto de uma classe para facilitar comparações precisas (remove pontos, ordinais e espaços extras).
+ */
+export function normalizeGradeKey(grade: string): string {
+  if (!grade) return '';
+  return grade
+    .toLowerCase()
+    .replace(/[.\-–—ºª°]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Verifica se a classe pertence ao Ensino Médio / II Ciclo (a partir da 10.ª classe) ou ao Ensino Superior.
+ */
+export function isUpperLevelGrade(grade: string): boolean {
+  if (!grade) return false;
+  const norm = normalizeGradeKey(grade);
+  const numMatch = grade.match(/(\d+)/);
+  if (numMatch) {
+    const num = parseInt(numMatch[1], 10);
+    if (num >= 10) return true;
+  }
+  return (
+    norm.includes('licenciatura') ||
+    norm.includes('bacharelato') ||
+    norm.includes('mestrado') ||
+    norm.includes('superior') ||
+    norm.includes('10') ||
+    norm.includes('11') ||
+    norm.includes('12') ||
+    norm.includes('13')
+  );
+}
+
+/**
+ * Retorna todas as áreas/cursos disponíveis com base nos subsistemas ativos.
+ * Opcionalmente filtra de acordo com a classe selecionada.
+ */
 export function getAvailableAreas(selectedIds?: EducationLevelId[], targetGrade?: string): string[] {
   if (targetGrade) {
     const sub = getSubsystemForGrade(targetGrade);
-    if (sub) {
+    if (sub && sub.defaultAreas && sub.defaultAreas.length > 0) {
       return sub.defaultAreas;
     }
   }
@@ -175,13 +247,56 @@ export function getAvailableAreas(selectedIds?: EducationLevelId[], targetGrade?
 }
 
 /**
- * Encontra a qual subsistema uma classe pertence.
+ * Encontra a qual subsistema uma classe pertence de forma rigorosa e confiável.
  */
 export function getSubsystemForGrade(grade: string): EducationSubsystem | undefined {
   if (!grade) return undefined;
-  return ALL_EDUCATION_SUBSYSTEMS.find((sub) =>
-    sub.grades.some((g) => g.toLowerCase() === grade.toLowerCase() || grade.toLowerCase().includes(g.toLowerCase()))
-  );
+  const normGrade = normalizeGradeKey(grade);
+
+  // 1. Verificação por comparação direta normalizada
+  for (const sub of ALL_EDUCATION_SUBSYSTEMS) {
+    if (sub.grades.some((g) => normalizeGradeKey(g) === normGrade)) {
+      return sub;
+    }
+  }
+
+  // 2. Verificação numérica para classes de ensino geral e técnico
+  const numMatch = grade.match(/(\d+)/);
+  if (numMatch) {
+    const num = parseInt(numMatch[1], 10);
+    if (num >= 1 && num <= 6) {
+      return ALL_EDUCATION_SUBSYSTEMS.find((s) => s.id === 'primario');
+    }
+    if (num >= 7 && num <= 9) {
+      return ALL_EDUCATION_SUBSYSTEMS.find((s) => s.id === 'secundario_1');
+    }
+    if (num >= 10 && num <= 13) {
+      return ALL_EDUCATION_SUBSYSTEMS.find((s) => s.id === 'secundario_2');
+    }
+  }
+
+  // 3. Verificação para Ensino Superior
+  const lower = grade.toLowerCase();
+  if (
+    lower.includes('licenciatura') ||
+    lower.includes('bacharelato') ||
+    lower.includes('mestrado') ||
+    lower.includes('superior')
+  ) {
+    return ALL_EDUCATION_SUBSYSTEMS.find((s) => s.id === 'superior');
+  }
+
+  // 4. Verificação para Pré-Escolar
+  if (
+    lower.includes('creche') ||
+    lower.includes('jardim') ||
+    lower.includes('iniciação') ||
+    lower.includes('iniciacao')
+  ) {
+    return ALL_EDUCATION_SUBSYSTEMS.find((s) => s.id === 'pre_escolar');
+  }
+
+  return undefined;
 }
 
 /**
@@ -189,19 +304,19 @@ export function getSubsystemForGrade(grade: string): EducationSubsystem | undefi
  */
 export function getCycleForGrade(grade: string): string {
   const sub = getSubsystemForGrade(grade);
-  if (!sub) {
-    if (grade.includes('Classe')) {
-      const num = parseInt(grade.replace(/\D/g, ''), 10);
-      if (num >= 1 && num <= 6) return 'Ensino Primário';
-      if (num >= 7 && num <= 9) return 'I Ciclo do Ensino Secundário';
-      if (num >= 10 && num <= 13) return 'II Ciclo / Ensino Médio';
-    }
-    if (grade.includes('Licenciatura') || grade.includes('Mestrado') || grade.includes('Bacharelato')) {
-      return 'Ensino Superior';
-    }
-    return 'Ensino Geral';
+  if (sub) {
+    return sub.fullName;
   }
-  return sub.fullName;
+  if (grade.includes('Classe')) {
+    const num = parseInt(grade.replace(/\D/g, ''), 10);
+    if (num >= 1 && num <= 6) return 'Ensino Primário';
+    if (num >= 7 && num <= 9) return 'I Ciclo do Ensino Secundário';
+    if (num >= 10 && num <= 13) return 'II Ciclo / Ensino Médio';
+  }
+  if (grade.includes('Licenciatura') || grade.includes('Mestrado') || grade.includes('Bacharelato')) {
+    return 'Ensino Superior';
+  }
+  return 'Ensino Geral';
 }
 
 /**
@@ -220,10 +335,100 @@ export function generateSuggestedClassName(grade: string, section: string, area?
     return `${grade}${areaShort} • Turma ${cleanSection}`;
   }
 
-  if (grade.includes('10ª') || grade.includes('11ª') || grade.includes('12ª') || grade.includes('13ª')) {
+  if (
+    grade.includes('10') ||
+    grade.includes('11') ||
+    grade.includes('12') ||
+    grade.includes('13')
+  ) {
     const areaTag = area && !area.includes('Geral') ? ` (${area.split(' ')[0]})` : '';
     return `${grade}${areaTag} • Turma ${cleanSection}`;
   }
 
   return `${grade} • Turma ${cleanSection}`;
+}
+
+/**
+ * Gera automaticamente o código de uma disciplina com base no nome e disciplinas já cadastradas.
+ * Exemplo: 'Matemática' -> 'MAT01'. Se já houver outra Matemática em outro ciclo -> 'MAT02'.
+ * Avisa se já existir a mesma disciplina cadastrada no mesmo ciclo/subsistema.
+ */
+export function generateSubjectCode(
+  name: string,
+  existingSubjects: Subject[],
+  targetCycle?: string
+): { code: string; isDuplicateInSameCycle: boolean; sequence: number } {
+  if (!name || name.trim().length === 0) {
+    return { code: '', isDuplicateInSameCycle: false, sequence: 1 };
+  }
+
+  // Remove acentos e caracteres especiais para gerar prefixo limpo
+  const clean = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9\s]/g, '')
+    .trim();
+
+  const words = clean.split(/\s+/).filter(Boolean);
+  let prefix = '';
+
+  if (words.length === 1) {
+    prefix = words[0].slice(0, 3).toUpperCase();
+  } else if (words.length === 2) {
+    prefix = (words[0].slice(0, 2) + words[1].slice(0, 1)).toUpperCase();
+  } else {
+    // 3 palavras ou mais
+    const meaningfulWords = words.filter(
+      (w) => !['de', 'da', 'do', 'e', 'em', 'para', 'com'].includes(w.toLowerCase())
+    );
+    if (meaningfulWords.length >= 3) {
+      prefix = meaningfulWords.slice(0, 3).map((w) => w[0]).join('').toUpperCase();
+    } else {
+      prefix = (words[0].slice(0, 2) + words[1].slice(0, 1)).toUpperCase();
+    }
+  }
+
+  if (prefix.length < 3) {
+    prefix = (prefix + 'DIS').slice(0, 3).toUpperCase();
+  }
+
+  // Verifica disciplinas existentes com o mesmo prefixo
+  const matchingPrefix = existingSubjects.filter((s) => {
+    const c = (s.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    return c.startsWith(prefix);
+  });
+
+  // Verifica se a mesma disciplina com o mesmo nome já existe no mesmo ciclo/subsistema
+  const cleanNormName = clean.toLowerCase();
+  const isDuplicateInSameCycle = Boolean(
+    targetCycle &&
+      existingSubjects.some((s) => {
+        const sNormName = (s.name || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase()
+          .trim();
+        const sameName = sNormName === cleanNormName;
+        const sameCycle =
+          (s.cycle || '').trim().toLowerCase() === targetCycle.trim().toLowerCase();
+        return sameName && sameCycle;
+      })
+  );
+
+  // Calcula o maior número sequencial já usado para este prefixo
+  let maxSeq = 0;
+  matchingPrefix.forEach((s) => {
+    const raw = (s.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const numPart = raw.slice(prefix.length);
+    const parsed = parseInt(numPart, 10);
+    if (!isNaN(parsed) && parsed > maxSeq) {
+      maxSeq = parsed;
+    }
+  });
+
+  const nextSeq = maxSeq + 1;
+  const seqStr = String(nextSeq).padStart(2, '0');
+  const code = `${prefix}${seqStr}`;
+
+  return { code, isDuplicateInSameCycle, sequence: nextSeq };
 }

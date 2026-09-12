@@ -12,6 +12,15 @@ export interface User {
   password?: string;
 }
 
+export interface AttachedDocument {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  dataUrl: string;
+  uploadedAt: string;
+}
+
 export interface Student {
   id: string;
   procNumber: string;
@@ -26,11 +35,28 @@ export interface Student {
   birthDate: string;
   nif: string;
   citizenCard: string;
+  biNumber?: string;
+  gender?: 'Masculino' | 'Feminino' | 'M' | 'F' | string;
+  nationality?: string;
+  birthPlace?: string;
   address: string;
+  studentPhone?: string;
   guardianName: string;
   guardianPhone: string;
   guardianEmail: string;
   guardianNif: string;
+  guardianRelation?: string;
+  // 4. Histórico Escolar
+  previousSchool?: string;
+  lastCompletedGrade?: string;
+  academicSituation?: 'Transitado' | 'Reprovado' | 'Primeira Matrícula' | 'Transferido' | string;
+  // 5. Documentos
+  docBiCopy?: 'Entregue' | 'Pendente' | 'Dispensado' | string;
+  docBiFile?: AttachedDocument;
+  docCertificate?: 'Entregue' | 'Declaração Provisória' | 'Pendente' | string;
+  docCertificateFile?: AttachedDocument;
+  additionalDocs?: AttachedDocument[];
+  docPassPhoto?: string;
   attendanceRate: number;
   financialStatus: 'regular' | 'debito' | 'isento';
   status: 'active' | 'pending' | 'transferred' | 'suspended';
@@ -39,6 +65,7 @@ export interface Student {
   excusedAbsences: number;
   monthlyTuitionKz: number;
   isTuitionPaidCurrentMonth: boolean;
+  grades?: Record<string, number>;
   disciplineGrades: {
     subject: string;
     score: number;
@@ -91,6 +118,20 @@ export interface ClassRoom {
   academicYear: string;
 }
 
+export interface Course {
+  id: string;
+  code: string;
+  name: string;
+  level: EducationLevelId;
+  cycle: string;
+  grades?: string[];
+  description?: string;
+  coordinatorId?: string;
+  coordinatorName?: string;
+  durationYears?: number;
+  status: 'ativo' | 'inativo';
+}
+
 export interface Subject {
   id: string;
   name: string;
@@ -139,17 +180,18 @@ export interface AttendanceSheet {
 }
 
 export interface GradeItem {
-  id: string;
-  studentId: string;
-  studentName: string;
-  procNumber: string;
-  avatar: string;
+  id: string | number;
+  examId?: string | number;
+  studentId: string | number;
+  studentName?: string;
+  procNumber?: string;
+  avatar?: string;
   mac: number;
   npp: number;
   npt: number;
   finalScore: number;
   qualitative: string;
-  situation: 'Transita (Dispensa)' | 'Transita' | 'Exame de Recurso' | 'Não Aprovado';
+  situation: 'Transita (Dispensa)' | 'Transita' | 'Exame de Recurso' | 'Não Aprovado' | string;
   teacherNote?: string;
 }
 
@@ -269,6 +311,7 @@ export interface EducationSubsystem {
   description: string;
   grades: string[];
   defaultAreas: string[];
+  coursesOrAreas?: string[];
   regime: string;
   icon: string;
 }
@@ -302,6 +345,7 @@ export interface SchoolDatabase {
   teachers: Teacher[];
   classes: ClassRoom[];
   subjects: Subject[];
+  courses?: Course[];
   attendance: AttendanceSheet;
   pauta: ExamPauta;
   invoices: TuitionInvoice[];

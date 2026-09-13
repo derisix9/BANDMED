@@ -3,6 +3,11 @@ import { SchoolDatabase, Student, UserRole, AttachedDocument } from '../types';
 import { dbService } from '../services/db';
 import { getSubsystemForGrade } from '../utils/educationSubsystems';
 import { AsyncButton } from '../components/AsyncButton';
+import { runGlobalOperation } from '../context/OperationContext';
+import { OperationStatusModal } from '../components/OperationStatusModal';
+import { compressImageFile } from '../utils/imageCompressor';
+import { getAllocatedClassIdsForUser } from '../utils/teacherSubjects';
+import { hasPermission } from '../utils/permissions';
 
 interface AlunosViewProps {
   db: SchoolDatabase;
@@ -37,6 +42,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
   const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [studentDocMode, setStudentDocMode] = useState<'ficha' | 'cartao'>('ficha');
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success'>('idle');
 
   // Refs de carregamento de ficheiros
@@ -215,19 +221,27 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
     setIsModalOpen(true);
   };
 
-  const handlePhotoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          setFormData((prev) => ({
-            ...prev,
-            docPassPhoto: reader.result as string
-          }));
-        }
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageFile(file, 480, 480, 0.82);
+        setFormData((prev) => ({
+          ...prev,
+          docPassPhoto: compressed
+        }));
+      } catch {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (typeof reader.result === 'string') {
+            setFormData((prev) => ({
+              ...prev,
+              docPassPhoto: reader.result as string
+            }));
+          }
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -446,7 +460,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
       setTimeout(() => {
         setIsModalOpen(false);
         setSubmitStatus('idle');
-      }, 700);
+      }, 1200);
     }, 600);
   };
 
@@ -457,16 +471,15 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-              Módulo Académico • MED Angola
+              MATRICULAS • ALUNOS
             </span>
             <span className="w-1.5 h-1.5 bg-[#0b1f3a]" />
-            <span className="text-xs font-semibold text-[#0b1f3a]">Registo Biográfico & Matrículas</span>
+            <span className="text-xs font-semibold text-[#0b1f3a]">Registo de Alunos & Matrículas</span>
           </div>
           <h1 className="font-headline text-2xl lg:text-3xl font-extrabold text-[#0b1f3a] tracking-tight">
             Gestão de Alunos & Matrículas
           </h1>
           <p className="text-xs text-slate-600 mt-0.5">
-            Processos biográficos oficiais, histórico escolar prévio, documentação e situação de tesouraria.
           </p>
         </div>
 
@@ -477,7 +490,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
               className="flex items-center gap-2 px-5 py-2.5 rounded-none bg-[#0b1f3a] hover:bg-[#7a0c0c] active:scale-[0.99] transition-all text-white font-bold text-xs shadow-none shrink-0 cursor-pointer border border-[#0b1f3a]"
             >
               <span className="material-symbols-outlined text-[18px]">person_add</span>
-              <span>+ MATRICULAR NOVO ALUNO</span>
+              <span>CADASTRAR</span>
             </button>
           )}
         </div>
@@ -486,8 +499,8 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
       {/* Filter Bar & Tabs */}
       <div className="bg-white p-4 rounded-none border border-slate-300 flex flex-col gap-3">
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-          <div className="relative flex-1 max-w-md">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
+          <div className="relative flex items-center flex-1 max-w-md border border-slate-400/30 bg-slate-50/60 rounded-none focus-within:border-slate-400/70 focus-within:bg-white transition-colors">
+            <span className="material-symbols-outlined ml-3 text-slate-400 text-[18px] shrink-0">
               search
             </span>
             <input
@@ -495,7 +508,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Pesquisar por nome, processo, BI, telefone, encarregado, escola..."
-              className="w-full h-9 pl-9 pr-3 rounded-none bg-slate-50 text-xs text-slate-800 placeholder:text-slate-400 border border-slate-300 focus:outline-none focus:bg-white focus:border-[#0b1f3a]"
+              className="w-full h-9 pl-2 pr-3 bg-transparent border-0 border-none outline-none focus:ring-0 text-xs text-slate-800 placeholder:text-slate-400"
             />
           </div>
 
@@ -542,7 +555,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
 
         {/* View mode tabs for detailed columns */}
         <div className="flex items-center gap-2 border-t border-slate-200 pt-2.5">
-          <span className="text-[11px] font-bold uppercase text-slate-500 mr-1">Colunas da Tabela:</span>
+          <span className="text-[11px] font-bold uppercase text-slate-500 mr-1">Navegar para:</span>
           <button
             onClick={() => setTableTab('geral')}
             className={`px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer border ${
@@ -551,7 +564,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                 : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
             }`}
           >
-            Visão Geral Académica
+            Dados Pessoais
           </button>
           <button
             onClick={() => setTableTab('biografico')}
@@ -561,7 +574,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                 : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
             }`}
           >
-            Dados Biográficos & Contactos
+            Dados Adicionais
           </button>
           <button
             onClick={() => setTableTab('historico_docs')}
@@ -571,7 +584,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                 : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
             }`}
           >
-            4. Histórico Escolar & 5. Documentos
+            Documentos
           </button>
         </div>
       </div>
@@ -809,7 +822,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                         </>
                       )}
 
-                      {/* Ações Oficiais */}
+                      {/* Ações */}
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
@@ -866,7 +879,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[22px]">person_add</span>
                 <h3 className="font-bold text-base tracking-wide uppercase">
-                  {editingStudent ? 'Editar Ficha e Matrícula do Aluno' : 'Nova Matrícula Escolar Oficial'}
+                  {editingStudent ? 'Editar Matrícula' : 'Nova Matrícula'}
                 </h3>
               </div>
               <button
@@ -884,7 +897,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                 <div className="flex items-center gap-2 pb-2 mb-3 border-b border-slate-200">
                   <span className="material-symbols-outlined text-[18px] text-[#0b1f3a]">badge</span>
                   <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-                    1. Identificação Pessoal & Dados Biográficos
+                    1. Identificação Pessoal
                   </h4>
                 </div>
 
@@ -899,7 +912,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="Ex: Manuel António da Costa"
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     />
                   </div>
 
@@ -912,7 +925,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       required
                       value={formData.procNumber}
                       onChange={(e) => setFormData({ ...formData, procNumber: e.target.value })}
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 font-mono font-bold text-slate-800 focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 font-mono font-bold text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     />
                   </div>
 
@@ -923,7 +936,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                     <select
                       value={formData.gender}
                       onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 font-semibold focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 font-semibold focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     >
                       <option value="Masculino">Masculino</option>
                       <option value="Feminino">Feminino</option>
@@ -932,7 +945,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
 
                   <div>
                     <label className="block uppercase font-bold text-slate-700 mb-1">
-                      N.º do Bilhete de Identidade / Passaporte *
+                      N.º do B.I / Passaporte *
                     </label>
                     <input
                       type="text"
@@ -940,7 +953,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       value={formData.biNumber}
                       onChange={(e) => setFormData({ ...formData, biNumber: e.target.value })}
                       placeholder="Ex: 004819201LA042"
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 font-mono font-semibold text-slate-800 focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 font-mono font-semibold text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     />
                   </div>
 
@@ -952,7 +965,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       type="date"
                       value={formData.birthDate}
                       onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:outline-none font-mono"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none font-mono"
                     />
                   </div>
 
@@ -966,7 +979,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       value={formData.nationality}
                       onChange={(e) => setFormData({ ...formData, nationality: e.target.value })}
                       placeholder="Ex: Angolana"
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     />
                   </div>
 
@@ -980,13 +993,13 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       value={formData.birthPlace}
                       onChange={(e) => setFormData({ ...formData, birthPlace: e.target.value })}
                       placeholder="Ex: Luanda, Benguela, Huambo..."
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     />
                   </div>
 
                   <div>
                     <label className="block uppercase font-bold text-slate-700 mb-1">
-                      Telefone de Contacto do Aluno *
+                      Telefone *
                     </label>
                     <input
                       type="text"
@@ -994,7 +1007,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       value={formData.studentPhone}
                       onChange={(e) => setFormData({ ...formData, studentPhone: e.target.value })}
                       placeholder="+244 923 000 000"
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 font-mono font-bold text-slate-800 focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 font-mono font-bold text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     />
                   </div>
 
@@ -1008,20 +1021,20 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       value={formData.address}
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                       placeholder="Ex: Bairro Morro Bento, Rua Direita, nº 14, Luanda"
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     />
                   </div>
 
                   <div>
                     <label className="block uppercase font-bold text-slate-700 mb-1">
-                      E-mail Institucional / Pessoal
+                      E-mail
                     </label>
                     <input
                       type="email"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       placeholder="aluno@bandmed.edu.pt"
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     />
                   </div>
                 </div>
@@ -1032,7 +1045,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                 <div className="flex items-center gap-2 pb-2 mb-3 border-b border-slate-200">
                   <span className="material-symbols-outlined text-[18px] text-[#0b1f3a]">school</span>
                   <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-                    2. Enquadramento de Turma & Plano Financeiro
+                    2. Enquadramento
                   </h4>
                 </div>
 
@@ -1049,7 +1062,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                     <select
                       value={formData.classId}
                       onChange={(e) => handleClassChange(e.target.value)}
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:outline-none text-xs font-semibold"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs font-semibold"
                     >
                       {db.classes.map((c) => (
                         <option key={c.id} value={c.id.toString()}>
@@ -1061,14 +1074,14 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
 
                   <div>
                     <label className="block uppercase font-bold text-slate-700 mb-1">
-                      Propina Mensal (Kz) *
+                      Propina Mensal (AOA) *
                     </label>
                     <input
                       type="number"
                       required
                       value={formData.monthlyTuitionKz}
                       onChange={(e) => setFormData({ ...formData, monthlyTuitionKz: Number(e.target.value) })}
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 font-mono font-bold text-slate-800 focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 font-mono font-bold text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     />
                   </div>
 
@@ -1079,7 +1092,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                     <select
                       value={formData.financialStatus}
                       onChange={(e) => setFormData({ ...formData, financialStatus: e.target.value as any })}
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 font-semibold focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 font-semibold focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     >
                       <option value="regular">Regular (Sem Dívida)</option>
                       <option value="debito">Em Débito (Mora)</option>
@@ -1094,7 +1107,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                 <div className="flex items-center gap-2 pb-2 mb-3 border-b border-slate-200">
                   <span className="material-symbols-outlined text-[18px] text-[#0b1f3a]">family_restroom</span>
                   <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-                    3. Encarregado de Educação & Contactos Oficiais
+                    3. Encarregado de Educação
                   </h4>
                 </div>
 
@@ -1109,18 +1122,18 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       value={formData.guardianName}
                       onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
                       placeholder="Ex: Dr. Afonso Silva"
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     />
                   </div>
 
                   <div>
                     <label className="block uppercase font-bold text-slate-700 mb-1">
-                      Parentesco do Encarregado *
+                      Parentesco*
                     </label>
                     <select
                       value={formData.guardianRelation}
                       onChange={(e) => setFormData({ ...formData, guardianRelation: e.target.value })}
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 font-semibold focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 font-semibold focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     >
                       <option value="Pai">Pai</option>
                       <option value="Mãe">Mãe</option>
@@ -1134,7 +1147,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
 
                   <div>
                     <label className="block uppercase font-bold text-slate-700 mb-1">
-                      Telefone do Encarregado *
+                      Telefone*
                     </label>
                     <input
                       type="text"
@@ -1142,7 +1155,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       value={formData.guardianPhone}
                       onChange={(e) => setFormData({ ...formData, guardianPhone: e.target.value })}
                       placeholder="+244 912 345 678"
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 font-mono font-bold text-slate-800 focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 font-mono font-bold text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     />
                   </div>
 
@@ -1155,7 +1168,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       value={formData.guardianEmail}
                       onChange={(e) => setFormData({ ...formData, guardianEmail: e.target.value })}
                       placeholder="encarregado@email.ao"
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     />
                   </div>
                 </div>
@@ -1181,7 +1194,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       value={formData.previousSchool}
                       onChange={(e) => setFormData({ ...formData, previousSchool: e.target.value })}
                       placeholder="Ex: Complexo Escolar nº 1205"
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     />
                   </div>
 
@@ -1195,7 +1208,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       value={formData.lastCompletedGrade}
                       onChange={(e) => setFormData({ ...formData, lastCompletedGrade: e.target.value })}
                       placeholder="Ex: 9.ª Classe, 10.ª Classe"
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 font-semibold focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 font-semibold focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     />
                   </div>
 
@@ -1206,7 +1219,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                     <select
                       value={formData.academicSituation}
                       onChange={(e) => setFormData({ ...formData, academicSituation: e.target.value })}
-                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 font-semibold focus:border-[#0b1f3a] focus:outline-none"
+                      className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 font-semibold focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                     >
                       <option value="Transitado">Transitado (Apto)</option>
                       <option value="Reprovado">Reprovado (Repetição)</option>
@@ -1222,7 +1235,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                 <div className="flex items-center gap-2 pb-2 mb-3 border-b border-slate-200">
                   <span className="material-symbols-outlined text-[18px] text-[#0b1f3a]">folder_open</span>
                   <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-                    5. Documentos Obrigatórios & Fotografia Tipo Passe
+                    5. Documentos
                   </h4>
                 </div>
 
@@ -1239,7 +1252,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       <select
                         value={formData.docBiCopy}
                         onChange={(e) => setFormData({ ...formData, docBiCopy: e.target.value })}
-                        className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 font-semibold focus:border-[#0b1f3a] focus:outline-none"
+                        className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 font-semibold focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                       >
                         <option value="Entregue">Entregue (Conforme)</option>
                         <option value="Pendente">Pendente de Entrega</option>
@@ -1280,9 +1293,9 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                         <button
                           type="button"
                           onClick={() => biFileInputRef.current?.click()}
-                          className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-100 hover:bg-slate-200 border border-dashed border-slate-400 text-slate-700 font-semibold text-xs cursor-pointer transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0b1f3a] text-white hover:bg-[#7a0c0c] font-bold text-xs cursor-pointer border border-[#0b1f3a] transition-colors"
                         >
-                          <span className="material-symbols-outlined text-[16px] text-[#0b1f3a]">attach_file</span>
+                          <span className="material-symbols-outlined text-[16px]">upload</span>
                           <span>Carregar Ficheiro do B.I. / Passaporte</span>
                         </button>
                       )}
@@ -1299,7 +1312,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       <select
                         value={formData.docCertificate}
                         onChange={(e) => setFormData({ ...formData, docCertificate: e.target.value })}
-                        className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 font-semibold focus:border-[#0b1f3a] focus:outline-none"
+                        className="w-full h-9 px-3 rounded-none bg-white border border-slate-300 text-slate-800 font-semibold focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none"
                       >
                         <option value="Entregue">Entregue (Original/Autenticado)</option>
                         <option value="Declaração Provisória">Declaração Provisória com Notas</option>
@@ -1340,9 +1353,9 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                         <button
                           type="button"
                           onClick={() => certFileInputRef.current?.click()}
-                          className="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-slate-100 hover:bg-slate-200 border border-dashed border-slate-400 text-slate-700 font-semibold text-xs cursor-pointer transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0b1f3a] text-white hover:bg-[#7a0c0c] font-bold text-xs cursor-pointer border border-[#0b1f3a] transition-colors"
                         >
-                          <span className="material-symbols-outlined text-[16px] text-[#0b1f3a]">attach_file</span>
+                          <span className="material-symbols-outlined text-[16px]">upload</span>
                           <span>Carregar Certificado ou Declaração</span>
                         </button>
                       )}
@@ -1390,20 +1403,23 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                             Carregar Foto do Computador
                           </button>
 
-                          <span className="text-slate-400 text-xs">ou escolher amostra:</span>
+                          <span className="text-slate-500 text-xs font-medium">ou selecionar da galeria de fotos (2 fotos disponíveis):</span>
 
-                          <div className="flex items-center gap-1">
-                            {DEFAULT_SAMPLE_PHOTOS.slice(0, 4).map((pUrl, idx) => (
+                          <div className="flex items-center gap-2 p-1 bg-slate-100 border border-slate-200">
+                            {DEFAULT_SAMPLE_PHOTOS.slice(0, 2).map((pUrl, idx) => (
                               <button
                                 key={idx}
                                 type="button"
                                 onClick={() => setFormData({ ...formData, docPassPhoto: pUrl })}
-                                className={`w-8 h-8 border overflow-hidden cursor-pointer ${
-                                  formData.docPassPhoto === pUrl ? 'border-2 border-[#7a0c0c]' : 'border-slate-300'
+                                className={`group relative w-10 h-10 border overflow-hidden cursor-pointer transition-all ${
+                                  formData.docPassPhoto === pUrl ? 'border-2 border-[#7a0c0c] shadow-xs' : 'border-slate-300 hover:border-slate-400'
                                 }`}
-                                title={`Foto de amostra ${idx + 1}`}
+                                title={`Foto ${idx + 1} da galeria`}
                               >
-                                <img src={pUrl} alt={`Foto ${idx}`} className="w-full h-full object-cover" />
+                                <img src={pUrl} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
+                                <span className="absolute bottom-0 inset-x-0 bg-black/60 text-[8px] text-white text-center font-bold">
+                                  Foto {idx + 1}
+                                </span>
                               </button>
                             ))}
                           </div>
@@ -1418,7 +1434,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       <div className="flex items-center gap-1.5">
                         <span className="material-symbols-outlined text-[18px] text-[#0b1f3a]">note_add</span>
                         <label className="block uppercase font-bold text-slate-800 text-xs">
-                          Anexar Outros Documentos Complementares
+                          Anexar Outros Documentos
                         </label>
                       </div>
                       <span className="text-[11px] font-mono text-[#0b1f3a] font-bold bg-blue-50 px-2 py-0.5 border border-blue-200">
@@ -1427,7 +1443,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                     </div>
 
                     <p className="text-[11px] text-slate-600 leading-relaxed">
-                      Carregue de uma só vez ou gradualmente até <strong>3 documentos</strong> adicionais (Atestado Médico, Cartão de Vacinas, Declarações de Transferência, etc.) em formato <strong>PDF ou Imagem</strong> (máximo de <strong>5MB</strong> por ficheiro).
+                      Carregue de uma só vez ou gradualmente até <strong>3 documentos</strong> adicionais em formato <strong>PDF ou Imagem</strong> (máximo de <strong>5MB</strong> por ficheiro).
                     </p>
 
                     <input
@@ -1443,10 +1459,10 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                       <button
                         type="button"
                         onClick={() => otherDocsInputRef.current?.click()}
-                        className="flex items-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-dashed border-slate-400 text-slate-800 font-bold text-xs cursor-pointer transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0b1f3a] text-white hover:bg-[#7a0c0c] font-bold text-xs cursor-pointer border border-[#0b1f3a] transition-colors"
                       >
-                        <span className="material-symbols-outlined text-[18px] text-[#0b1f3a]">upload_file</span>
-                        <span>Selecionar Documentos Adicionais (PDF ou Imagem)</span>
+                        <span className="material-symbols-outlined text-[16px]">upload</span>
+                        <span>Documentos Adicionais</span>
                       </button>
                     )}
 
@@ -1518,416 +1534,530 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                   {submitStatus === 'idle' && (
                     <>
                       <span className="material-symbols-outlined text-[16px]">save</span>
-                      <span>{editingStudent ? 'SALVAR ALTERAÇÕES DA MATRÍCULA' : 'CONCLUIR MATRÍCULA ESCOLAR'}</span>
+                      <span>{editingStudent ? 'SALVAR ALTERAÇÕES' : 'CADASTRAR'}</span>
                     </>
                   )}
                 </button>
               </div>
             </form>
+
+            <OperationStatusModal
+              isOpen={submitStatus !== 'idle'}
+              status={submitStatus === 'loading' ? 'loading' : 'success'}
+              loadingMessage={editingStudent ? 'A salvar alterações do aluno...' : 'A processar matrícula do aluno...'}
+              successMessage="Operação feita com sucesso!"
+            />
           </div>
         </div>
       )}
 
-      {/* MODAL: FICHA INDIVIDUAL COMPLETA DO ALUNO COM TODOS OS DADOS */}
+      {/* MODAL: FICHA INDIVIDUAL COMPLETA DO ALUNO COM TODOS OS DADOS (A4 PADRÃO - CONFORME IMAGEM 1) */}
       {viewingStudent && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white rounded-none max-w-4xl w-full shadow-2xl border border-slate-400 overflow-hidden flex flex-col max-h-[94vh]">
-            {/* Modal Header */}
-            <div className="px-6 py-4 bg-[#0b1f3a] text-white flex items-center justify-between border-b border-slate-700">
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-[24px]">badge</span>
-                <div>
-                  <h3 className="font-bold text-base tracking-wide uppercase">Ficha Individual do Aluno</h3>
-                  <p className="text-[11px] text-slate-300">
-                    República de Angola • Ministério da Educação • Registo Biográfico Oficial
-                  </p>
-                </div>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center p-3 sm:p-4 printable-modal-overlay overflow-y-auto print:p-0 print:m-0 print:block">
+          <div className="printable-document bg-white rounded-none max-w-4xl w-full shadow-2xl border border-slate-400 overflow-hidden flex flex-col my-4 print:my-0 print:border-none print:shadow-none print:w-full print:max-h-none">
+            {/* Modal Header (Oculto na impressão) */}
+            <div className="px-6 py-3 bg-[#0b1f3a] text-white flex items-center justify-between gap-3 border-b border-slate-700 no-print">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px] text-amber-400">description</span>
+                <h3 className="font-bold text-sm sm:text-base tracking-wide uppercase">
+                  Ficha Individual do Aluno • Folha A4 Oficial
+                </h3>
               </div>
-              <button
-                onClick={() => setViewingStudent(null)}
-                className="text-slate-300 hover:text-white p-1 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[22px]">close</span>
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setViewingStudent(null)}
+                  className="text-slate-300 hover:text-white p-1 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[22px]">close</span>
+                </button>
+              </div>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-6 text-slate-800 bg-white">
-              {/* Profile Card Header com Fotografia Tipo Passe Quadrada */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border border-slate-300 bg-slate-50">
-                <div className="flex items-center gap-4">
-                  {/* Fotografia Oficial Tipo Passe */}
-                  <div className="w-20 h-26 bg-slate-200 border-2 border-[#0b1f3a] overflow-hidden shrink-0 shadow-none">
-                    <img
-                      src={viewingStudent.docPassPhoto || viewingStudent.avatar || DEFAULT_SAMPLE_PHOTOS[0]}
-                      alt={viewingStudent.name}
-                      className="w-full h-full object-cover object-center"
-                    />
-                  </div>
+            {/* Modal Body - Folha A4 com Estrutura Idêntica à Imagem 1 */}
+            <div className="p-6 sm:p-8 space-y-3.5 text-slate-800 bg-white text-xs">
+              {/* Cabeçalho Institucional Oficial A4 */}
+              <div className="border-b-2 border-[#0b1f3a] pb-3 print-break-avoid">
+                <div className="text-center mb-2">
+                  <h1 className="text-base sm:text-lg font-black tracking-wide text-[#0b1f3a] uppercase">
+                    {db.settings?.schoolName}
+                  </h1>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    {db.settings?.subTitle || `NIF: ${db.settings?.nif} • ${db.settings?.province}, Angola`}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                   <div>
-                    <div className="inline-block text-[10px] font-bold uppercase bg-[#0b1f3a] text-white px-2 py-0.5 mb-1">
-                      {viewingStudent.gender === 'Feminino' || viewingStudent.gender === 'F' ? 'Discente (Feminino)' : 'Discente (Masculino)'}
+                    <div className="text-[10px] font-bold text-sky-800 tracking-wider uppercase">
+                      DOCUMENTO HOMOLOGADO OFICIAL
                     </div>
-                    <h4 className="font-headline text-xl font-bold text-[#0b1f3a]">
-                      {viewingStudent.name}
-                    </h4>
-                    <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-slate-600">
-                      <span className="font-mono font-bold bg-white px-2 py-0.5 border border-slate-300 text-slate-900">
-                        Processo: #{viewingStudent.procNumber}
-                      </span>
-                      <span>•</span>
-                      <span className="font-mono font-bold text-slate-800">
-                        BI: {viewingStudent.biNumber || viewingStudent.citizenCard || 'Pendente'}
-                      </span>
-                      <span>•</span>
-                      <span className="font-semibold text-slate-800">
-                        Turma: {viewingStudent.className}
-                      </span>
+                    <h2 className="text-sm sm:text-base font-black tracking-tight text-slate-900 uppercase">
+                      FICHA INDIVIDUAL DE CADASTRO & MATRÍCULA
+                    </h2>
+                    <div className="text-[11px] text-slate-500 font-semibold">
+                      Ano Lectivo {db.settings?.currentAcademicYear || '2024 / 2025'}
                     </div>
                   </div>
-                </div>
 
-                <div className="flex sm:flex-col items-end gap-2 w-full sm:w-auto">
-                  {viewingStudent.financialStatus === 'regular' ? (
-                    <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold text-xs uppercase">
-                      Propinas Regulares
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-[#0b1f3a] text-white font-bold text-[11px] uppercase tracking-wider">
+                      PORTAL DO ALUNO
                     </span>
-                  ) : viewingStudent.financialStatus === 'debito' ? (
-                    <span className="px-3 py-1 bg-red-50 text-red-800 border border-red-300 font-bold text-xs uppercase">
-                      Em Débito (Mora)
+                    <span className="px-2.5 py-1 bg-amber-50 text-amber-900 border border-amber-300 font-mono font-bold text-xs">
+                      Proc. #{viewingStudent.procNumber}
                     </span>
-                  ) : (
-                    <span className="px-3 py-1 bg-slate-100 text-slate-700 border border-slate-300 font-bold text-xs uppercase">
-                      Isento / Bolseiro
-                    </span>
-                  )}
-                  <span className="text-xs text-slate-600 font-mono font-bold">
-                    {(viewingStudent.monthlyTuitionKz || 95000).toLocaleString()} Kz/mês
-                  </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Grid: 1. Identificação Biográfica & Contactos */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 border border-slate-300 bg-white">
-                  <h5 className="font-bold text-xs uppercase tracking-wider text-[#0b1f3a] mb-3 flex items-center gap-1.5 border-b border-slate-200 pb-1.5">
-                    <span className="material-symbols-outlined text-[16px]">badge</span>
-                    1. Identificação Pessoal do Estudante
-                  </h5>
-                  <dl className="space-y-2 text-xs">
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">Nome Completo:</dt>
-                      <dd className="font-bold text-slate-900">{viewingStudent.name}</dd>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">N.º do BI / Passaporte:</dt>
-                      <dd className="font-mono font-bold text-[#0b1f3a]">
-                        {viewingStudent.biNumber || viewingStudent.citizenCard || 'Pendente'}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">Género:</dt>
-                      <dd className="font-semibold text-slate-800">
-                        {viewingStudent.gender || 'Masculino'}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">Nacionalidade:</dt>
-                      <dd className="font-semibold text-slate-800">
-                        {viewingStudent.nationality || 'Angolana'}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">Naturalidade:</dt>
-                      <dd className="font-semibold text-slate-800">
-                        {viewingStudent.birthPlace || 'Luanda'}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">Data de Nascimento:</dt>
-                      <dd className="font-mono text-slate-800">{viewingStudent.birthDate || 'Não registada'}</dd>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">Telefone do Aluno:</dt>
-                      <dd className="font-mono font-bold text-[#0b1f3a]">
-                        {viewingStudent.studentPhone || 'Não informado'}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <dt className="text-slate-500">Endereço / Bairro:</dt>
-                      <dd className="font-medium text-slate-800 text-right max-w-[240px]">
-                        {viewingStudent.address || 'Luanda, Angola'}
-                      </dd>
-                    </div>
-                  </dl>
+              {/* 1. DADOS BIOGRÁFICOS & IDENTIFICAÇÃO PESSOAL (Conforme Imagem 1) */}
+              <div className="border border-slate-300 bg-white print-break-avoid">
+                <div className="bg-slate-100 border-b border-slate-300 px-3 py-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-xs uppercase text-[#0b1f3a] tracking-wider">
+                    <span className="material-symbols-outlined text-[16px]">person</span>
+                    <span>DADOS BIOGRÁFICOS & IDENTIFICAÇÃO PESSOAL</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">SECÇÃO 01</span>
                 </div>
 
-                {/* 2. Encarregado de Educação */}
-                <div className="p-4 border border-slate-300 bg-white">
-                  <h5 className="font-bold text-xs uppercase tracking-wider text-[#0b1f3a] mb-3 flex items-center gap-1.5 border-b border-slate-200 pb-1.5">
-                    <span className="material-symbols-outlined text-[16px]">family_restroom</span>
-                    2. Encarregado de Educação & Contactos
-                  </h5>
-                  <dl className="space-y-2 text-xs">
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">Nome do Encarregado:</dt>
-                      <dd className="font-bold text-slate-900">{viewingStudent.guardianName || 'Não registado'}</dd>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">Parentesco do Encarregado:</dt>
-                      <dd className="font-bold text-[#7a0c0c] uppercase">
-                        {viewingStudent.guardianRelation || 'Pai'}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">Telefone do Encarregado:</dt>
-                      <dd className="font-mono font-bold text-[#0b1f3a]">
-                        {viewingStudent.guardianPhone ? (
-                          <a href={`tel:${viewingStudent.guardianPhone}`} className="hover:underline">
-                            {viewingStudent.guardianPhone}
-                          </a>
-                        ) : (
-                          'Sem contacto'
-                        )}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">E-mail do Encarregado:</dt>
-                      <dd className="font-mono text-slate-700">
-                        {viewingStudent.guardianEmail || 'Não informado'}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">Turma Matriculada:</dt>
-                      <dd className="font-bold text-slate-900">{viewingStudent.className}</dd>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">Assiduidade Geral:</dt>
-                      <dd className="font-mono font-bold text-emerald-700">
-                        {viewingStudent.attendanceRate || 100}%
-                      </dd>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <dt className="text-slate-500">Faltas Injustificadas:</dt>
-                      <dd className="font-mono font-bold text-red-600">
-                        {viewingStudent.unexcusedAbsences || 0} faltas
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              </div>
-
-              {/* Grid: 4. Histórico Escolar & 5. Documentos */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* 4. HISTÓRICO ESCOLAR */}
-                <div className="p-4 border border-slate-300 bg-white">
-                  <h5 className="font-bold text-xs uppercase tracking-wider text-[#0b1f3a] mb-3 flex items-center gap-1.5 border-b border-slate-200 pb-1.5">
-                    <span className="material-symbols-outlined text-[16px]">history_edu</span>
-                    4. Histórico Escolar
-                  </h5>
-                  <dl className="space-y-2 text-xs">
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">Escola de Proveniência:</dt>
-                      <dd className="font-bold text-slate-900 text-right">
-                        {viewingStudent.previousSchool || 'Colégio São Francisco de Assis'}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between py-1 border-b border-slate-100">
-                      <dt className="text-slate-500">Classe Concluída:</dt>
-                      <dd className="font-semibold text-slate-800">
-                        {viewingStudent.lastCompletedGrade || '9.ª Classe'}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <dt className="text-slate-500">Situação de Ingresso:</dt>
-                      <dd className="font-bold text-blue-900 bg-blue-50 px-2 py-0.5 border border-blue-200 uppercase">
-                        {viewingStudent.academicSituation || 'Transitado'}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-
-                {/* 5. DOCUMENTOS */}
-                <div className="p-4 border border-slate-300 bg-white">
-                  <h5 className="font-bold text-xs uppercase tracking-wider text-[#0b1f3a] mb-3 flex items-center gap-1.5 border-b border-slate-200 pb-1.5">
-                    <span className="material-symbols-outlined text-[16px]">folder_open</span>
-                    5. Documentos Apresentados
-                  </h5>
-                  <dl className="space-y-2 text-xs">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between py-1.5 border-b border-slate-100 gap-1">
-                      <dt className="text-slate-500">Cópia do B.I. / Cédula / Passaporte:</dt>
-                      <div className="flex items-center gap-2">
-                        <dd className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 border border-emerald-300 uppercase">
-                          {viewingStudent.docBiCopy || 'Entregue'}
-                        </dd>
-                        {viewingStudent.docBiFile && (
-                          <a
-                            href={viewingStudent.docBiFile.dataUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            download={viewingStudent.docBiFile.name}
-                            className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-[#0b1f3a] font-bold border border-blue-300 text-[11px]"
-                            title="Descarregar ficheiro original"
-                          >
-                            <span className="material-symbols-outlined text-[14px]">download</span>
-                            <span>{viewingStudent.docBiFile.name.length > 20 ? viewingStudent.docBiFile.name.substring(0, 18) + '...' : viewingStudent.docBiFile.name}</span>
-                          </a>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between py-1.5 border-b border-slate-100 gap-1">
-                      <dt className="text-slate-500">Certificado Escolar:</dt>
-                      <div className="flex items-center gap-2">
-                        <dd className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 border border-emerald-300 uppercase">
-                          {viewingStudent.docCertificate || 'Entregue'}
-                        </dd>
-                        {viewingStudent.docCertificateFile && (
-                          <a
-                            href={viewingStudent.docCertificateFile.dataUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            download={viewingStudent.docCertificateFile.name}
-                            className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-[#0b1f3a] font-bold border border-blue-300 text-[11px]"
-                            title="Descarregar certificado"
-                          >
-                            <span className="material-symbols-outlined text-[14px]">download</span>
-                            <span>{viewingStudent.docCertificateFile.name.length > 20 ? viewingStudent.docCertificateFile.name.substring(0, 18) + '...' : viewingStudent.docCertificateFile.name}</span>
-                          </a>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between py-1.5 border-b border-slate-100">
-                      <dt className="text-slate-500">Fotografia Tipo Passe:</dt>
-                      <dd className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 border border-emerald-300 uppercase">
-                        Arquivada no Perfil Oficial
-                      </dd>
-                    </div>
-
-                    {/* Outros Documentos Anexados */}
-                    {viewingStudent.additionalDocs && viewingStudent.additionalDocs.length > 0 && (
-                      <div className="pt-2">
-                        <dt className="text-slate-600 font-bold uppercase text-[10px] mb-1.5">
-                          Documentos Complementares Anexados ({viewingStudent.additionalDocs.length}):
-                        </dt>
-                        <div className="space-y-1">
-                          {viewingStudent.additionalDocs.map((doc, idx) => (
-                            <div
-                              key={doc.id || idx}
-                              className="flex items-center justify-between p-1.5 bg-slate-50 border border-slate-200"
-                            >
-                              <div className="flex items-center gap-1.5 truncate">
-                                <span className="material-symbols-outlined text-[16px] text-[#0b1f3a]">
-                                  {doc.type.includes('pdf') ? 'picture_as_pdf' : 'image'}
-                                </span>
-                                <span className="font-semibold text-slate-800 truncate text-[11px]">{doc.name}</span>
-                                <span className="text-[10px] text-slate-400 font-mono">({formatFileSize(doc.size)})</span>
-                              </div>
-                              <a
-                                href={doc.dataUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                download={doc.name}
-                                className="flex items-center gap-1 px-2 py-0.5 bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 text-[10px] font-bold shrink-0 ml-2"
-                              >
-                                <span className="material-symbols-outlined text-[12px]">download</span>
-                                <span>Baixar</span>
-                              </a>
-                            </div>
-                          ))}
+                <div className="p-3.5 grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
+                  <div className="md:col-span-3 space-y-2.5 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <div className="sm:col-span-2">
+                        <span className="block text-[11px] text-slate-500 font-semibold">Nome Completo:</span>
+                        <div className="p-1.5 bg-slate-50 border border-slate-300 font-bold text-slate-900 truncate">
+                          {viewingStudent.name}
                         </div>
                       </div>
-                    )}
-                  </dl>
+                      <div>
+                        <span className="block text-[11px] text-slate-500 font-semibold">Abrev / Tratamento:</span>
+                        <div className="p-1.5 bg-slate-50 border border-slate-300 font-semibold text-slate-800 truncate">
+                          {viewingStudent.name.split(' ')[0]} {viewingStudent.name.split(' ').slice(-1)[0]}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div>
+                        <span className="block text-[11px] text-slate-500 font-semibold">Género:</span>
+                        <div className="p-1.5 bg-slate-50 border border-slate-300 font-semibold text-slate-800">
+                          {viewingStudent.gender || 'Masculino'}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="block text-[11px] text-slate-500 font-semibold">Data Nascimento:</span>
+                        <div className="p-1.5 bg-slate-50 border border-slate-300 font-mono font-semibold text-slate-800">
+                          {viewingStudent.birthDate || '12/03/2008'}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="block text-[11px] text-slate-500 font-semibold">Naturalidade / Província:</span>
+                        <div className="p-1.5 bg-slate-50 border border-slate-300 text-slate-800 truncate">
+                          {viewingStudent.placeOfBirth || viewingStudent.birthPlace || 'Luanda, Angola'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div>
+                        <span className="block text-[11px] text-slate-500 font-semibold">Número de B.I. / Passaporte:</span>
+                        <div className="p-1.5 bg-slate-50 border border-slate-300 font-mono font-bold text-[#0b1f3a]">
+                          {viewingStudent.biNumber || viewingStudent.citizenCard || '004829104LA042'}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="block text-[11px] text-slate-500 font-semibold">Estado Civil:</span>
+                        <div className="p-1.5 bg-slate-50 border border-slate-300 text-slate-800">
+                          Solteiro(a)
+                        </div>
+                      </div>
+                      <div>
+                        <span className="block text-[11px] text-slate-500 font-semibold">Grupo Sanguíneo:</span>
+                        <div className="p-1.5 bg-slate-50 border border-slate-300 font-mono font-bold text-red-700">
+                          {viewingStudent.bloodType || 'O+'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Foto 3x4 Oficial */}
+                  <div className="flex flex-col items-center justify-center p-2 bg-slate-50 border border-slate-300 text-center">
+                    <div className="w-24 h-28 bg-slate-200 border-2 border-slate-400 overflow-hidden mb-1 flex items-center justify-center shadow-2xs">
+                      {viewingStudent.avatar || viewingStudent.docPassPhoto ? (
+                        <img
+                          src={viewingStudent.docPassPhoto || viewingStudent.avatar}
+                          alt={viewingStudent.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-2xl font-bold text-slate-400">
+                          {viewingStudent.name.slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[9px] font-bold uppercase text-slate-500 tracking-tight">
+                      Foto Tipo Passe (3x4) Arquivada
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Avaliações Curriculares Registadas se houver */}
-              {viewingStudent.grades && Object.keys(viewingStudent.grades).length > 0 && (
-                <div className="border border-slate-300 overflow-hidden">
-                  <div className="bg-[#0b1f3a] text-white px-4 py-2.5 flex items-center justify-between">
-                    <span className="font-bold text-xs uppercase tracking-wider">
-                      Classificações Curriculares Oficiais (0 - 20 Valores)
-                    </span>
-                    <span className="text-xs font-mono font-bold text-blue-200">
-                      Ano Letivo {db.settings?.currentAcademicYear || '2024/2025'}
-                    </span>
+              {/* 2. MORADA / RESIDÊNCIA HABITUAL (Conforme Imagem 1) */}
+              <div className="border border-slate-300 bg-white print-break-avoid">
+                <div className="bg-slate-100 border-b border-slate-300 px-3 py-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-xs uppercase text-[#0b1f3a] tracking-wider">
+                    <span className="material-symbols-outlined text-[16px]">location_on</span>
+                    <span>MORADA / RESIDÊNCIA HABITUAL</span>
                   </div>
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead className="bg-slate-100 text-slate-700 font-bold uppercase text-[10px] border-b border-slate-300">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">SECÇÃO 02</span>
+                </div>
+
+                <div className="p-3.5 space-y-2 text-xs">
+                  <div>
+                    <span className="block text-[11px] text-slate-500 font-semibold">Morada de Residência:</span>
+                    <div className="p-1.5 bg-slate-50 border border-slate-300 text-slate-800 font-medium">
+                      {viewingStudent.address || 'Rua Principal do Benfica, Bairro dos Patriotas, Luanda'}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <span className="block text-[11px] text-slate-500 font-semibold">Código Postal / Bairro:</span>
+                      <div className="p-1.5 bg-slate-50 border border-slate-300 text-slate-800">
+                        Benfica / Patriotas
+                      </div>
+                    </div>
+                    <div>
+                      <span className="block text-[11px] text-slate-500 font-semibold">Localidade / Município:</span>
+                      <div className="p-1.5 bg-slate-50 border border-slate-300 text-slate-800 font-bold">
+                        Talatona / Luanda
+                      </div>
+                    </div>
+                    <div>
+                      <span className="block text-[11px] text-slate-500 font-semibold">Província / País:</span>
+                      <div className="p-1.5 bg-slate-50 border border-slate-300 text-slate-800 font-semibold">
+                        Luanda, República de Angola
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. HABILITAÇÕES LITERÁRIAS & PERCURSO ESCOLAR */}
+              <div className="border border-slate-300 bg-white print-break-avoid">
+                <div className="bg-slate-100 border-b border-slate-300 px-3 py-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-xs uppercase text-[#0b1f3a] tracking-wider">
+                    <span className="material-symbols-outlined text-[16px]">school</span>
+                    <span>HABILITAÇÕES LITERÁRIAS & PERCURSO ESCOLAR</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">SECÇÃO 03</span>
+                </div>
+
+                <div className="p-3">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse border border-slate-300">
+                      <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px]">
+                        <tr>
+                          <th className="p-2 border border-slate-300">Nível / Classe</th>
+                          <th className="p-2 border border-slate-300">Curso / Ciclo de Formação</th>
+                          <th className="p-2 border border-slate-300">Estabelecimento / Proveniência</th>
+                          <th className="p-2 border border-slate-300 text-center">Ano Lectivo</th>
+                          <th className="p-2 border border-slate-300 text-center">Situação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        <tr className="bg-white">
+                          <td className="p-2 border border-slate-300 font-bold text-[#0b1f3a]">{viewingStudent.className}</td>
+                          <td className="p-2 border border-slate-300 font-medium text-slate-700">{viewingStudent.cycle || 'Ensino Secundário Técnico / Geral'}</td>
+                          <td className="p-2 border border-slate-300 text-slate-800">{viewingStudent.previousSchool || 'Colégio São Francisco de Assis'}</td>
+                          <td className="p-2 border border-slate-300 text-center font-mono font-bold">
+                            {db.settings?.currentAcademicYear || `${new Date().getFullYear()}/${new Date().getFullYear() + 1}`}
+                          </td>
+                          <td className="p-2 border border-slate-300 text-center">
+                            <span className="px-2 py-0.5 bg-blue-50 text-blue-900 border border-blue-200 font-bold uppercase text-[10px]">
+                              {viewingStudent.academicSituation || 'Transitado'}
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Avaliações Curriculares Registadas */}
+                  {viewingStudent.grades && Object.keys(viewingStudent.grades).length > 0 && (
+                    <div className="mt-3">
+                      <div className="text-[11px] font-bold text-[#0b1f3a] uppercase mb-1.5 flex items-center justify-between">
+                        <span>Classificações Curriculares Oficiais (0 - 20 Valores)</span>
+                        <span className="font-mono text-slate-600 font-bold">Média: {viewingStudent.currentAverage || 14.5} Valores</span>
+                      </div>
+                      <table className="w-full text-xs text-left border-collapse border border-slate-300">
+                        <thead className="bg-slate-100 text-slate-700 text-[10px] uppercase font-bold">
+                          <tr>
+                            <th className="p-1.5 border border-slate-300">Disciplina</th>
+                            <th className="p-1.5 border border-slate-300 text-center">Classificação</th>
+                            <th className="p-1.5 border border-slate-300 text-right">Resultado Qualitativo</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 font-mono">
+                          {Object.entries(viewingStudent.grades).map(([subj, grade]) => {
+                            const val = Number(grade) || 0;
+                            const isPass = val >= 10;
+                            return (
+                              <tr key={subj} className="hover:bg-slate-50">
+                                <td className="p-1.5 border border-slate-300 font-sans font-semibold text-slate-800">{subj}</td>
+                                <td className="p-1.5 border border-slate-300 text-center font-bold">
+                                  <span className={`px-2 py-0.5 border text-xs ${isPass ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-red-50 text-red-800 border-red-300'}`}>
+                                    {val.toFixed(1)}
+                                  </span>
+                                </td>
+                                <td className="p-1.5 border border-slate-300 text-right font-sans font-medium text-slate-700">
+                                  {val >= 16 ? 'Excelente' : val >= 14 ? 'Bom' : val >= 10 ? 'Suficiente' : 'Não Apto'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 4. DADOS DE MATRÍCULA & ENQUADRAMENTO ESCOLAR */}
+              <div className="border border-slate-300 bg-white print-break-avoid">
+                <div className="bg-slate-100 border-b border-slate-300 px-3 py-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-xs uppercase text-[#0b1f3a] tracking-wider">
+                    <span className="material-symbols-outlined text-[16px]">how_to_reg</span>
+                    <span>DADOS DE MATRÍCULA & ENQUADRAMENTO ESCOLAR</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">SECÇÃO 04</span>
+                </div>
+
+                <div className="p-3.5 grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                  <div>
+                    <span className="block text-[11px] text-slate-500 font-semibold">Estado da Matrícula:</span>
+                    <div className="p-1.5 bg-emerald-50 border border-emerald-300 text-emerald-900 font-bold uppercase">
+                      Matrícula Activa
+                    </div>
+                  </div>
+                  <div>
+                    <span className="block text-[11px] text-slate-500 font-semibold">Regime de Propinas:</span>
+                    <div className={`p-1.5 border font-bold uppercase ${
+                      viewingStudent.financialStatus === 'regular'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                        : viewingStudent.financialStatus === 'debito'
+                        ? 'bg-red-50 text-red-800 border-red-300'
+                        : 'bg-slate-100 text-slate-700 border-slate-300'
+                    }`}>
+                      {viewingStudent.financialStatus === 'regular' ? 'Regular (Em Dia)' : viewingStudent.financialStatus === 'debito' ? 'Em Débito' : 'Isento / Bolsa'}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="block text-[11px] text-slate-500 font-semibold">Valor da Mensalidade:</span>
+                    <div className="p-1.5 bg-slate-50 border border-slate-300 font-mono font-bold text-slate-900">
+                      {(viewingStudent.monthlyTuitionKz || 95000).toLocaleString()} Kz/mês
+                    </div>
+                  </div>
+                  <div>
+                    <span className="block text-[11px] text-slate-500 font-semibold">Taxa de Assiduidade:</span>
+                    <div className="p-1.5 bg-slate-50 border border-slate-300 font-mono font-bold text-emerald-700">
+                      {viewingStudent.attendanceRate || 100}% ({viewingStudent.unexcusedAbsences || 0} faltas)
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 5. CONTACTOS & ENCARREGADOS DE EDUCAÇÃO */}
+              <div className="border border-slate-300 bg-white print-break-avoid">
+                <div className="bg-slate-100 border-b border-slate-300 px-3 py-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-xs uppercase text-[#0b1f3a] tracking-wider">
+                    <span className="material-symbols-outlined text-[16px]">call</span>
+                    <span>CONTACTOS & ENCARREGADOS DE EDUCAÇÃO</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">SECÇÃO 05</span>
+                </div>
+
+                <div className="p-3.5 space-y-3 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <span className="block text-[11px] text-slate-500 font-semibold">Email do Estudante:</span>
+                      <div className="p-1.5 bg-slate-50 border border-slate-300 font-mono text-slate-800">
+                        {viewingStudent.email || `${viewingStudent.procNumber}@bandmed.co.ao`}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="block text-[11px] text-slate-500 font-semibold">Telemóvel do Estudante:</span>
+                      <div className="p-1.5 bg-slate-50 border border-slate-300 font-mono font-bold text-[#0b1f3a]">
+                        {viewingStudent.studentPhone || 'Não informado'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Sub-caixa "Em caso de urgência contactar" (igual à imagem de exemplo) */}
+                  <div className="border border-slate-300 p-2.5 bg-slate-50">
+                    <span className="block text-[11px] text-[#0b1f3a] font-bold uppercase mb-2">
+                      Em caso de urgência contactar (Encarregado de Educação):
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                      <div className="sm:col-span-2">
+                        <span className="block text-[10px] text-slate-500 font-semibold">Nome do Encarregado:</span>
+                        <div className="p-1 bg-white border border-slate-300 font-bold text-slate-900 truncate">
+                          {viewingStudent.guardianName || 'Não registado'}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] text-slate-500 font-semibold">Parentesco:</span>
+                        <div className="p-1 bg-white border border-slate-300 font-bold text-[#7a0c0c] uppercase">
+                          {viewingStudent.guardianRelation || 'Pai'}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] text-slate-500 font-semibold">Telefone:</span>
+                        <div className="p-1 bg-white border border-slate-300 font-mono font-bold text-[#0b1f3a]">
+                          {viewingStudent.guardianPhone || 'Sem contacto'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-1.5">
+                      <span className="block text-[10px] text-slate-500 font-semibold">Email do Encarregado:</span>
+                      <div className="p-1 bg-white border border-slate-300 font-mono text-slate-700">
+                        {viewingStudent.guardianEmail || 'Não informado'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 6. DOCUMENTOS ARQUIVADOS NO PROCESSO FÍSICO */}
+              <div className="border border-slate-300 bg-white print-break-avoid">
+                <div className="bg-slate-100 border-b border-slate-300 px-3 py-1.5 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-xs uppercase text-[#0b1f3a] tracking-wider">
+                    <span className="material-symbols-outlined text-[16px]">folder_open</span>
+                    <span>DOCUMENTOS ARQUIVADOS NO PROCESSO FÍSICO</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">SECÇÃO 06</span>
+                </div>
+
+                <div className="p-2">
+                  <table className="w-full text-xs text-left border-collapse border border-slate-300">
+                    <thead className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px]">
                       <tr>
-                        <th className="py-2.5 px-4 border-r border-slate-200">Disciplina</th>
-                        <th className="py-2.5 px-4 text-center border-r border-slate-200">Classificação</th>
-                        <th className="py-2.5 px-4 text-right">Resultado Qualitativo</th>
+                        <th className="p-2 border border-slate-300">Tipo Doc.</th>
+                        <th className="p-2 border border-slate-300">Descrição / Ficheiro</th>
+                        <th className="p-2 border border-slate-300 text-center">Estado de Arquivo</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 font-mono">
-                      {Object.entries(viewingStudent.grades).map(([subj, grade]) => {
-                        const val = Number(grade) || 0;
-                        const isPass = val >= 10;
-                        return (
-                          <tr key={subj} className="hover:bg-slate-50">
-                            <td className="py-2 px-4 font-sans font-semibold text-slate-800 border-r border-slate-200">
-                              {subj}
-                            </td>
-                            <td className="py-2 px-4 text-center font-bold border-r border-slate-200">
-                              <span
-                                className={`px-2 py-0.5 border text-xs ${
-                                  isPass
-                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                                    : 'bg-red-50 text-red-800 border-red-300'
-                                }`}
-                              >
-                                {val.toFixed(1)}
-                              </span>
-                            </td>
-                            <td className="py-2 px-4 text-right font-sans font-semibold">
-                              {val >= 16 ? 'Excelente' : val >= 14 ? 'Bom' : val >= 10 ? 'Suficiente' : 'Não Apto'}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                    <tbody className="divide-y divide-slate-200">
+                      <tr className="bg-white">
+                        <td className="p-2 border border-slate-300 font-bold text-slate-900">Bilhete de Identidade / Passaporte</td>
+                        <td className="p-2 border border-slate-300 text-slate-700">
+                          Cópia autêntica arquivada {viewingStudent.docBiFile ? `(${viewingStudent.docBiFile.name})` : ''}
+                        </td>
+                        <td className="p-2 border border-slate-300 text-center">
+                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold uppercase text-[10px]">
+                            {viewingStudent.docBiCopy || 'Entregue'}
+                          </span>
+                        </td>
+                      </tr>
+                      <tr className="bg-slate-50/50">
+                        <td className="p-2 border border-slate-300 font-bold text-slate-900">Certificado de Habilitações</td>
+                        <td className="p-2 border border-slate-300 text-slate-700">
+                          Certificado de estudos anteriores {viewingStudent.docCertificateFile ? `(${viewingStudent.docCertificateFile.name})` : ''}
+                        </td>
+                        <td className="p-2 border border-slate-300 text-center">
+                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold uppercase text-[10px]">
+                            {viewingStudent.docCertificate || 'Entregue'}
+                          </span>
+                        </td>
+                      </tr>
+                      <tr className="bg-white">
+                        <td className="p-2 border border-slate-300 font-bold text-slate-900">Fotografia Tipo Passe (3x4)</td>
+                        <td className="p-2 border border-slate-300 text-slate-700">Fotografia oficial atualizada no sistema</td>
+                        <td className="p-2 border border-slate-300 text-center">
+                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold uppercase text-[10px]">
+                            Entregue
+                          </span>
+                        </td>
+                      </tr>
+                      {viewingStudent.additionalDocs && viewingStudent.additionalDocs.map((doc, idx) => (
+                        <tr key={doc.id || idx} className="bg-slate-50/50">
+                          <td className="p-2 border border-slate-300 font-bold text-slate-900">Documento Complementar</td>
+                          <td className="p-2 border border-slate-300 text-slate-700">{doc.name}</td>
+                          <td className="p-2 border border-slate-300 text-center">
+                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 font-bold uppercase text-[10px]">
+                              Arquivado
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
-              )}
+              </div>
+
+              {/* 7. TERMO DE AUTENTICAÇÃO E ASSINATURAS OFICIAIS */}
+              <div className="pt-3 border-t-2 border-[#0b1f3a] print-break-avoid">
+                <p className="text-[11px] text-slate-600 italic text-center mb-4">
+                  Declaro sob compromisso de honra a veracidade e autenticidade de todas as informações constantes nesta ficha cadastral oficial.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-end text-center text-xs">
+                  <div>
+                    <div className="h-8 border-b border-dashed border-slate-500 mx-4 mb-1" />
+                    <span className="font-bold text-slate-900 uppercase block text-[11px]">
+                      O/A Encarregado(a) / Aluno
+                    </span>
+                    <span className="text-[10px] text-slate-500">Assinatura Reconhecida</span>
+                  </div>
+
+                  <div>
+                    <div className="h-8 border-b border-dashed border-slate-500 mx-4 mb-1" />
+                    <span className="font-bold text-[#0b1f3a] uppercase block text-[11px]">
+                      Secretaria Pedagógica
+                    </span>
+                    <span className="text-[10px] text-slate-500">{db.settings?.schoolName}</span>
+                  </div>
+
+                  {/* Carimbo de Secretaria Homologado (Imagem 1) */}
+                  <div className="border border-slate-300 p-2 bg-slate-50">
+                    <div className="w-14 h-14 rounded-full border-2 border-[#ac332b] text-[#ac332b] flex flex-col items-center justify-center p-0.5 text-center font-bold text-[6px] leading-tight rotate-[-4deg] uppercase mx-auto mb-1">
+                      <span>SECRETARIA</span>
+                      <span className="text-[5px]">CEPB</span>
+                      <span>HOMOLOGADO</span>
+                    </div>
+                    <span className="block text-[8px] text-slate-500">
+                      Processo autenticado no sistema
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between text-[9px] text-slate-500">
+                  <span>Emissão: {new Date().toLocaleDateString('pt-PT')} • Sistema Integrado BandMed</span>
+                  <span>Válido em todo o território nacional como comprovativo de matrícula</span>
+                </div>
+              </div>
             </div>
 
-            {/* Modal Actions */}
-            <div className="px-6 py-4 bg-slate-100 border-t border-slate-300 flex items-center justify-between">
+            {/* Modal Actions (Oculto na impressão) */}
+            <div className="px-6 py-4 bg-slate-100 border-t border-slate-300 flex items-center justify-end gap-3 no-print">
               <button
                 type="button"
-                onClick={() => window.print()}
-                className="flex items-center gap-1.5 px-4 py-2 bg-white border border-slate-300 text-slate-800 hover:bg-slate-50 font-bold text-xs cursor-pointer"
+                onClick={() => {
+                  window.focus();
+                  window.print();
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 bg-[#7a0c0c] hover:bg-[#5e0909] text-white font-bold text-xs border border-[#7a0c0c] cursor-pointer transition-colors shadow-xs"
+                title="Abrir área de impressão do dispositivo para folha A4"
               >
-                <span className="material-symbols-outlined text-[18px]">print</span>
-                <span>Imprimir Ficha Oficial</span>
+                <span className="material-symbols-outlined text-[16px]">print</span>
+                <span>Imprimir</span>
               </button>
-
-              <div className="flex items-center gap-2">
-                {currentUserRole === 'admin' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const s = viewingStudent;
-                      setViewingStudent(null);
-                      handleOpenEdit(s);
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#0b1f3a] text-white hover:bg-[#7a0c0c] font-bold text-xs border border-[#0b1f3a] cursor-pointer transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">edit</span>
-                    <span>Editar Ficha</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setViewingStudent(null)}
-                  className="px-4 py-2 bg-slate-300 hover:bg-slate-400 text-slate-900 font-bold text-xs cursor-pointer"
-                >
-                  Fechar
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setViewingStudent(null)}
+                className="px-5 py-2 bg-slate-300 hover:bg-slate-400 text-slate-900 font-bold text-xs cursor-pointer"
+              >
+                Fechar
+              </button>
             </div>
           </div>
         </div>
@@ -1976,20 +2106,26 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
               >
                 Cancelar
               </button>
-              <AsyncButton
-                variant="danger"
-                loadingText="A eliminar aluno..."
-                successText="Aluno Eliminado com Sucesso!"
-                onAsyncClick={async () => {
-                  await new Promise((r) => setTimeout(r, 600));
-                  dbService.deleteStudent(studentToDelete.id);
-                }}
-                onSuccessComplete={() => {
+              <button
+                type="button"
+                onClick={async () => {
+                  const student = studentToDelete;
                   setStudentToDelete(null);
+                  await runGlobalOperation(
+                    async () => {
+                      dbService.deleteStudent(student.id);
+                    },
+                    {
+                      loadingMessage: `A eliminar matrícula de ${student.name}...`,
+                      successMessage: 'Operação feita com sucesso!'
+                    }
+                  );
                 }}
+                className="px-5 py-2.5 rounded-none bg-[#b91c1c] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-none border-none"
               >
-                Sim, Eliminar Aluno
-              </AsyncButton>
+                <span className="material-symbols-outlined text-[16px]">delete</span>
+                <span>Sim, Eliminar Aluno</span>
+              </button>
             </div>
           </div>
         </div>

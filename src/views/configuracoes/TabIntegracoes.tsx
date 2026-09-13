@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { InstitutionSettings } from '../../types';
+import { InstitutionSettings, UserRole } from '../../types';
 
 interface TabIntegracoesProps {
   settings: InstitutionSettings;
-  onSaveAll: () => void;
+  currentUserRole?: UserRole;
+  onSaveAll: (options?: { loadingMessage?: string; successMessage?: string; requiredRule?: string }) => void;
 }
 
 export const TabIntegracoes: React.FC<TabIntegracoesProps> = ({
+  currentUserRole,
   onSaveAll
 }) => {
   const [showSecretKey, setShowSecretKey] = useState(false);
@@ -306,11 +308,17 @@ export const TabIntegracoes: React.FC<TabIntegracoesProps> = ({
         <div className="flex items-center gap-2 justify-end">
           <button
             type="button"
-            onClick={onSaveAll}
-            className="px-5 py-2 rounded-xl bg-[#0b1f3a] text-white font-bold text-xs hover:bg-[#7a0c0c] transition-colors shadow-md flex items-center gap-1.5"
+            onClick={() =>
+              onSaveAll({
+                requiredRule: 'config.edit',
+                loadingMessage: 'A guardar parâmetros de integração e chaves de API...',
+                successMessage: 'Operação feita com sucesso!'
+              })
+            }
+            className="px-5 py-2 rounded-xl bg-[#0b1f3a] text-white font-bold text-xs hover:bg-[#7a0c0c] transition-colors shadow-md flex items-center gap-1.5 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[17px]">save</span>
-            <span>Guardar Parâmetros de Integração</span>
+            <span>Guardar</span>
           </button>
         </div>
       </div>

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { SchoolDatabase, Notice, LibraryBook, UserRole } from '../types';
 import { dbService } from '../services/db';
+import { runGlobalOperation } from '../context/OperationContext';
+import { ComunicadosEmMassaTab } from '../components/ComunicadosEmMassaTab';
 
 interface AvisosEBibliotecaViewProps {
   db: SchoolDatabase;
@@ -15,7 +17,7 @@ export const AvisosEBibliotecaView: React.FC<AvisosEBibliotecaViewProps> = ({
   isNoticeModalOpen,
   setIsNoticeModalOpen
 }) => {
-  const [activeTab, setActiveTab] = useState<'avisos' | 'biblioteca'>('avisos');
+  const [activeTab, setActiveTab] = useState<'avisos' | 'biblioteca' | 'comunicados'>('avisos');
   const [searchTerm, setSearchTerm] = useState('');
   const [requestedBookMessage, setRequestedBookMessage] = useState<string | null>(null);
 
@@ -24,33 +26,34 @@ export const AvisosEBibliotecaView: React.FC<AvisosEBibliotecaViewProps> = ({
   const [newNoticeExcerpt, setNewNoticeExcerpt] = useState('');
   const [newNoticeContent, setNewNoticeContent] = useState('');
   const [newNoticePriority, setNewNoticePriority] = useState<'urgente' | 'alta' | 'normal' | 'informativa'>('normal');
-  const [submitStatus, setSubmitStatus] = useState<'idle' | 'loading' | 'success'>('idle');
 
-  const handleCreateNotice = (e: React.FormEvent) => {
+  const handleCreateNotice = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitStatus('loading');
+    if (!newNoticeTitle.trim() || !newNoticeContent.trim()) return;
 
-    setTimeout(() => {
-      dbService.addNotice({
-        title: newNoticeTitle,
-        excerpt: newNoticeExcerpt || newNoticeContent.substring(0, 80),
-        content: newNoticeContent,
-        author: currentUserRole === 'admin' ? 'Direção Geral' : 'Gabinete Pedagógico',
-        authorRole: currentUserRole === 'admin' ? 'Diretor Geral' : 'Docente',
-        targetRoles: ['admin', 'professor', 'aluno', 'encarregado'],
-        priority: newNoticePriority
-      });
-
-      setSubmitStatus('success');
-
-      setTimeout(() => {
-        setNewNoticeTitle('');
-        setNewNoticeExcerpt('');
-        setNewNoticeContent('');
-        setSubmitStatus('idle');
-        setIsNoticeModalOpen(false);
-      }, 1000);
-    }, 600);
+    await runGlobalOperation(
+      async () => {
+        dbService.addNotice({
+          title: newNoticeTitle.trim(),
+          excerpt: newNoticeExcerpt.trim() || newNoticeContent.trim().substring(0, 80),
+          content: newNoticeContent.trim(),
+          author: currentUserRole === 'admin' ? 'Direção Geral' : 'Gabinete Pedagógico',
+          authorRole: currentUserRole === 'admin' ? 'Diretor Geral' : 'Docente',
+          targetRoles: ['admin', 'professor', 'aluno', 'encarregado'],
+          priority: newNoticePriority
+        });
+      },
+      {
+        loadingMessage: 'A publicar aviso escolar...',
+        successMessage: 'Aviso escolar publicado e comunicado em tempo real!',
+        onSuccess: () => {
+          setNewNoticeTitle('');
+          setNewNoticeExcerpt('');
+          setNewNoticeContent('');
+          setIsNoticeModalOpen(false);
+        }
+      }
+    );
   };
 
   const handleRequestBook = (bookTitle: string) => {
@@ -123,6 +126,16 @@ export const AvisosEBibliotecaView: React.FC<AvisosEBibliotecaViewProps> = ({
             >
               Biblioteca Escolar
             </button>
+            {currentUserRole === 'admin' && (
+              <button
+                onClick={() => setActiveTab('comunicados')}
+                className={`px-3 py-1.5 rounded-none transition-colors ${
+                  activeTab === 'comunicados' ? 'bg-[#0b1f3a] text-white shadow-xs' : 'text-slate-700 hover:text-slate-900'
+                }`}
+              >
+                Comunicados em Massa
+              </button>
+            )}
           </div>
 
           {activeTab === 'avisos' && currentUserRole === 'admin' && (
@@ -137,7 +150,7 @@ export const AvisosEBibliotecaView: React.FC<AvisosEBibliotecaViewProps> = ({
         </div>
       </div>
 
-      {activeTab === 'avisos' ? (
+      {activeTab === 'avisos' && (
         /* Notices Tab */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {db.notices.map((notice) => (
@@ -194,12 +207,14 @@ export const AvisosEBibliotecaView: React.FC<AvisosEBibliotecaViewProps> = ({
             </div>
           ))}
         </div>
-      ) : (
+      )}
+
+      {activeTab === 'biblioteca' && (
         /* Library Tab */
         <div className="space-y-4">
           <div className="bg-white p-4 rounded-none border border-slate-300 shadow-xs flex items-center justify-between gap-3">
-            <div className="relative w-full max-w-md">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
+            <div className="relative flex items-center w-full max-w-md border border-slate-400/30 bg-slate-50/60 rounded-none focus-within:border-slate-400/70 focus-within:bg-white transition-colors">
+              <span className="material-symbols-outlined ml-3 text-slate-400 text-[18px] shrink-0">
                 search
               </span>
               <input
@@ -207,7 +222,7 @@ export const AvisosEBibliotecaView: React.FC<AvisosEBibliotecaViewProps> = ({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Pesquisar livros por título, autor, categoria ou ISBN..."
-                className="w-full h-9 pl-9 pr-3 rounded-none bg-white border border-slate-300 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#0b1f3a]"
+                className="w-full h-9 pl-2 pr-3 bg-transparent border-0 border-none outline-none focus:ring-0 text-xs text-slate-800 placeholder:text-slate-400"
               />
             </div>
             <span className="text-xs text-slate-400 font-mono">
@@ -268,6 +283,10 @@ export const AvisosEBibliotecaView: React.FC<AvisosEBibliotecaViewProps> = ({
         </div>
       )}
 
+      {activeTab === 'comunicados' && (
+        <ComunicadosEmMassaTab db={db} />
+      )}
+
       {/* Notice Modal */}
       {isNoticeModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -297,7 +316,6 @@ export const AvisosEBibliotecaView: React.FC<AvisosEBibliotecaViewProps> = ({
                   value={newNoticeTitle}
                   onChange={(e) => setNewNoticeTitle(e.target.value)}
                   placeholder="Ex: Interrupção Letiva para Conselho Geral"
-                  disabled={submitStatus !== 'idle'}
                   className="w-full h-9 px-3 rounded-none bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-[#0b1f3a]"
                 />
               </div>
@@ -307,7 +325,6 @@ export const AvisosEBibliotecaView: React.FC<AvisosEBibliotecaViewProps> = ({
                 <select
                   value={newNoticePriority}
                   onChange={(e) => setNewNoticePriority(e.target.value as any)}
-                  disabled={submitStatus !== 'idle'}
                   className="w-full h-9 px-3 rounded-none bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-[#0b1f3a]"
                 >
                   <option value="urgente">Urgente (Vermelho)</option>
@@ -324,7 +341,6 @@ export const AvisosEBibliotecaView: React.FC<AvisosEBibliotecaViewProps> = ({
                   value={newNoticeExcerpt}
                   onChange={(e) => setNewNoticeExcerpt(e.target.value)}
                   placeholder="Breve resumo de 1 linha..."
-                  disabled={submitStatus !== 'idle'}
                   className="w-full h-9 px-3 rounded-none bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-[#0b1f3a]"
                 />
               </div>
@@ -339,7 +355,6 @@ export const AvisosEBibliotecaView: React.FC<AvisosEBibliotecaViewProps> = ({
                   value={newNoticeContent}
                   onChange={(e) => setNewNoticeContent(e.target.value)}
                   placeholder="Escreva a circular informativa para professores, alunos e encarregados..."
-                  disabled={submitStatus !== 'idle'}
                   className="w-full p-3 rounded-none bg-white text-slate-800 border border-slate-300 focus:outline-none focus:border-[#0b1f3a]"
                 />
               </div>
@@ -347,39 +362,17 @@ export const AvisosEBibliotecaView: React.FC<AvisosEBibliotecaViewProps> = ({
               <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-200">
                 <button
                   type="button"
-                  disabled={submitStatus !== 'idle'}
                   onClick={() => setIsNoticeModalOpen(false)}
-                  className="px-4 py-2 rounded-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 rounded-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={submitStatus !== 'idle'}
-                  className={`px-5 py-2 rounded-none font-bold text-white transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-sm ${
-                    submitStatus === 'success'
-                      ? 'bg-emerald-600 hover:bg-emerald-700'
-                      : 'bg-[#0b1f3a] hover:bg-[#7a0c0c]'
-                  } disabled:cursor-not-allowed`}
+                  className="px-5 py-2 rounded-none font-bold text-white transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer shadow-sm bg-[#0b1f3a] hover:bg-[#7a0c0c]"
                 >
-                  {submitStatus === 'loading' && (
-                    <>
-                      <span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>Publicando...</span>
-                    </>
-                  )}
-                  {submitStatus === 'success' && (
-                    <>
-                      <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                      <span>Operação realizada com sucesso!</span>
-                    </>
-                  )}
-                  {submitStatus === 'idle' && (
-                    <>
-                      <span className="material-symbols-outlined text-[18px]">campaign</span>
-                      <span>Publicar Circular</span>
-                    </>
-                  )}
+                  <span className="material-symbols-outlined text-[18px]">campaign</span>
+                  <span>Publicar</span>
                 </button>
               </div>
             </form>

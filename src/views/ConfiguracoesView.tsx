@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SchoolDatabase, SystemSettings, UserRole } from '../types';
 import { dbService } from '../services/db';
+import { runGlobalOperation } from '../context/OperationContext';
 import { TabDadosInstituicao } from './configuracoes/TabDadosInstituicao';
 import { TabAnoLetivo } from './configuracoes/TabAnoLetivo';
 import { TabFinanceiro } from './configuracoes/TabFinanceiro';
@@ -8,6 +9,7 @@ import { TabRegrasNotas } from './configuracoes/TabRegrasNotas';
 import { TabPerfisPermissoes } from './configuracoes/TabPerfisPermissoes';
 import { TabIntegracoes } from './configuracoes/TabIntegracoes';
 import { TabSegurancaBackups } from './configuracoes/TabSegurancaBackups';
+import { TabUsuarios } from './configuracoes/TabUsuarios';
 
 interface ConfiguracoesViewProps {
   db: SchoolDatabase;
@@ -23,7 +25,8 @@ export type SettingsTabId =
   | 'notas'
   | 'perfis'
   | 'integracoes'
-  | 'seguranca-backups';
+  | 'seguranca-backups'
+  | 'utilizadores';
 
 interface NavModule {
   id: SettingsTabId;
@@ -98,11 +101,21 @@ const navModules: NavModule[] = [
     icon: 'security',
     badge: 'AES-256',
     subtitle: '2FA, Auditoria & Cópias Seguras'
+  },
+  {
+    id: 'utilizadores',
+    index: 8,
+    label: '8. Criação de Utilizadores',
+    shortLabel: 'Utilizadores',
+    icon: 'group_add',
+    badge: 'RBAC',
+    subtitle: 'Contas de Acesso & Atribuição de Perfis'
   }
 ];
 
 export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
   db,
+  currentUserRole,
   onOpenSqlExport,
   onResetData
 }) => {
@@ -117,27 +130,25 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
     setSettings((prev) => ({ ...prev, ...newPartial }));
   };
 
-  const handleSaveAll = () => {
-    dbService.updateSettings(settings);
-    setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 4000);
+  const handleSaveAll = async (options?: { loadingMessage?: string; successMessage?: string; requiredRule?: string }) => {
+    return await runGlobalOperation(
+      async () => {
+        dbService.updateSettings(settings);
+        setSavedSuccess(true);
+        setTimeout(() => setSavedSuccess(false), 4000);
+      },
+      {
+        requiredRule: options?.requiredRule || 'config.edit',
+        userRole: currentUserRole,
+        loadingMessage: options?.loadingMessage || 'A gravar alterações nas configurações do sistema...',
+        successMessage: options?.successMessage || 'Operação feita com sucesso!'
+      }
+    );
   };
 
   const handleSwitchTab = (tabId: SettingsTabId) => {
     setActiveTab(tabId);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const goToNextTab = () => {
-    if (currentIndex < navModules.length - 1) {
-      handleSwitchTab(navModules[currentIndex + 1].id);
-    }
-  };
-
-  const goToPrevTab = () => {
-    if (currentIndex > 0) {
-      handleSwitchTab(navModules[currentIndex - 1].id);
-    }
   };
 
   return (
@@ -152,20 +163,20 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
             <span className="w-1.5 h-1.5 rounded-full bg-[#0b1f3a]" />
             <span className="font-bold text-[#0b1f3a]">{settings.currentAcademicYear || '2024 / 2025'}</span>
             <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-            <span className="font-bold text-[#ac332b]">Aba {currentModule.index} de 7: {currentModule.shortLabel}</span>
+            <span className="font-bold text-[#ac332b]">Aba {currentModule.index} de 8: {currentModule.shortLabel}</span>
           </div>
           <h1 className="font-headline text-2xl lg:text-3xl font-extrabold text-[#0b1f3a] tracking-tight">
             Configurações do Sistema & Parâmetros
           </h1>
           <p className="text-xs text-slate-500 mt-1 max-w-3xl">
-            Navegue pelas 7 abas administrativas para parametrizar a instituição, ano letivo, finanças, notas curriculares, acessos RBAC, integrações fiscais e segurança.
+            Navegue pelas 8 abas administrativas para parametrizar a instituição, ano letivo, finanças, notas curriculares, acessos RBAC, integrações fiscais, segurança e criação de utilizadores.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
           <button
             type="button"
-            onClick={handleSaveAll}
+            onClick={() => handleSaveAll()}
             className="px-5 py-2 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold text-xs shadow-md transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[17px]">save</span>
@@ -190,7 +201,7 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
               Navegação das 7 Abas de Configuração
             </span>
             <span className="px-2 py-0.5 rounded-md bg-blue-50 text-[#0b1f3a] font-mono text-[10px] font-bold">
-              7 Módulos Oficiais
+              8 Módulos Oficiais
             </span>
           </div>
           <div className="text-[11px] text-slate-500 hidden sm:block">
@@ -246,6 +257,7 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
         {activeTab === 'instituicao' && (
           <TabDadosInstituicao
             settings={settings}
+            currentUserRole={currentUserRole}
             onUpdateSettings={handleUpdateSettings}
             onSaveAll={handleSaveAll}
           />
@@ -254,6 +266,8 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
         {activeTab === 'ano-letivo' && (
           <TabAnoLetivo
             settings={settings}
+            currentUserRole={currentUserRole}
+            onUpdateSettings={handleUpdateSettings}
             onSaveAll={handleSaveAll}
           />
         )}
@@ -261,6 +275,8 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
         {activeTab === 'financeiro' && (
           <TabFinanceiro
             settings={settings}
+            currentUserRole={currentUserRole}
+            onUpdateSettings={handleUpdateSettings}
             onSaveAll={handleSaveAll}
           />
         )}
@@ -268,6 +284,8 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
         {activeTab === 'notas' && (
           <TabRegrasNotas
             settings={settings}
+            currentUserRole={currentUserRole}
+            onUpdateSettings={handleUpdateSettings}
             onSaveAll={handleSaveAll}
           />
         )}
@@ -275,6 +293,8 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
         {activeTab === 'perfis' && (
           <TabPerfisPermissoes
             settings={settings}
+            currentUserRole={currentUserRole}
+            onUpdateSettings={handleUpdateSettings}
             onSaveAll={handleSaveAll}
           />
         )}
@@ -282,6 +302,7 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
         {activeTab === 'integracoes' && (
           <TabIntegracoes
             settings={settings}
+            currentUserRole={currentUserRole}
             onSaveAll={handleSaveAll}
           />
         )}
@@ -289,29 +310,26 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
         {activeTab === 'seguranca-backups' && (
           <TabSegurancaBackups
             settings={settings}
+            currentUserRole={currentUserRole}
+            onUpdateSettings={handleUpdateSettings}
             onSaveAll={handleSaveAll}
             onOpenSqlExport={onOpenSqlExport}
             onResetData={onResetData}
           />
         )}
+
+        {activeTab === 'utilizadores' && (
+          <TabUsuarios
+            settings={settings}
+            currentUserRole={currentUserRole}
+            onUpdateSettings={handleUpdateSettings}
+            onSaveAll={handleSaveAll}
+          />
+        )}
       </div>
 
       {/* Pagination Footer to jump between tabs easily */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-slate-200 shadow-xs">
-        <button
-          type="button"
-          onClick={goToPrevTab}
-          disabled={currentIndex === 0}
-          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors ${
-            currentIndex === 0
-              ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400'
-              : 'bg-slate-100 hover:bg-slate-200 text-slate-800 cursor-pointer'
-          }`}
-        >
-          <span className="material-symbols-outlined text-[16px]">chevron_left</span>
-          <span>Aba Anterior: {currentIndex > 0 ? navModules[currentIndex - 1].shortLabel : 'Início'}</span>
-        </button>
-
+      <div className="flex items-center justify-center p-4 bg-white rounded-2xl border border-slate-200 shadow-xs">
         <div className="flex items-center justify-center gap-1">
           {navModules.map((m) => (
             <button
@@ -329,20 +347,6 @@ export const ConfiguracoesView: React.FC<ConfiguracoesViewProps> = ({
             </button>
           ))}
         </div>
-
-        <button
-          type="button"
-          onClick={goToNextTab}
-          disabled={currentIndex === navModules.length - 1}
-          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors ${
-            currentIndex === navModules.length - 1
-              ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400'
-              : 'bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white shadow-xs cursor-pointer'
-          }`}
-        >
-          <span>Próxima Aba: {currentIndex < navModules.length - 1 ? navModules[currentIndex + 1].shortLabel : 'Fim'}</span>
-          <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-        </button>
       </div>
     </div>
   );

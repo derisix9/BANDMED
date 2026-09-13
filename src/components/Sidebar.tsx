@@ -7,6 +7,7 @@ interface SidebarProps {
   currentUserRole: UserRole;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
+  onLogout?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -14,7 +15,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onNavigate,
   currentUserRole,
   isMobileOpen,
-  onCloseMobile
+  onCloseMobile,
+  onLogout
 }) => {
   const isAllowed = (roles: UserRole[]) => roles.includes(currentUserRole);
 
@@ -59,7 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold text-base tracking-tight text-white font-headline">BandMed</span>
+                  <span className="font-extrabold text-base tracking-tight text-white font-headline">BANDMED</span>
                   <span className="px-1.5 py-0.2 rounded text-[9px] uppercase font-bold tracking-wider bg-[#7a0c0c] text-white">
                     {currentUserRole === 'admin' ? 'Admin' : currentUserRole === 'professor' ? 'Docente' : currentUserRole === 'aluno' ? 'Aluno' : 'Tutor'}
                   </span>
@@ -131,7 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('turmas')}`}>
                       menu_book
                     </span>
-                    <span>Turmas & Disciplinas</span>
+                    <span>Turmas/Disciplinas</span>
                   </button>
                 )}
               </div>
@@ -163,7 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('pautas')}`}>
                       assignment
                     </span>
-                    <span>Exames & Notas</span>
+                    <span>Lançamento/Notas</span>
                   </button>
                 )}
               </div>
@@ -183,7 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('propinas')}`}>
                       payments
                     </span>
-                    <span>Propinas & Pagamentos</span>
+                    <span>Propinas/Pagamentos</span>
                   </button>
                 )}
               </div>
@@ -202,7 +204,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('mural_biblioteca')}`}>
                     campaign
                   </span>
-                  <span>Avisos & Biblioteca</span>
+                  <span>Avisos/Biblioteca</span>
                 </button>
               </div>
             </div>
@@ -221,7 +223,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('relatorios')}`}>
                       bar_chart
                     </span>
-                    <span>Relatórios Oficiais</span>
+                    <span>Relatórios</span>
                   </button>
                 )}
 
@@ -246,7 +248,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between text-[11px] text-slate-400">
             <div className="flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[#7a0c0c] text-[16px]">verified_user</span>
-              <span className="font-semibold text-slate-200">BandMed Core</span>
+              <span className="font-semibold text-slate-200">BandMed</span>
             </div>
             <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white">v3.4.2 Enterprise</span>
           </div>

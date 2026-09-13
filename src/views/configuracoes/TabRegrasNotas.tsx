@@ -1,22 +1,113 @@
 import React, { useState } from 'react';
-import { InstitutionSettings } from '../../types';
+import { InstitutionSettings, UserRole } from '../../types';
+import { dbService } from '../../services/db';
 
 interface TabRegrasNotasProps {
   settings: InstitutionSettings;
-  onSaveAll: () => void;
+  currentUserRole?: UserRole;
+  onUpdateSettings?: (newSettings: Partial<InstitutionSettings>) => void;
+  onSaveAll: (options?: { loadingMessage?: string; successMessage?: string; requiredRule?: string }) => void;
 }
 
-export const TabRegrasNotas: React.FC<TabRegrasNotasProps> = ({ settings, onSaveAll }) => {
-  const [bloqueioFracionario, setBloqueioFracionario] = useState(true);
-  const [dispensaExameVal, setDispensaExameVal] = useState('14.0');
-  const [macPeso, setMacPeso] = useState(30);
-  const [ppPeso, setPpPeso] = useState(30);
-  const [ptPeso, setPtPeso] = useState(40);
+export const TabRegrasNotas: React.FC<TabRegrasNotasProps> = ({ settings, currentUserRole, onUpdateSettings, onSaveAll }) => {
+  const initialRules = (settings.gradeRules as any) || {};
+
+  const [macPeso, setMacPeso] = useState<number>(initialRules.macWeight ?? 30);
+  const [ppPeso, setPpPeso] = useState<number>(initialRules.ppWeight ?? 30);
+  const [ptPeso, setPtPeso] = useState<number>(initialRules.ptWeight ?? 40);
+
+  const [notaAprovacao, setNotaAprovacao] = useState<number>(initialRules.passingGrade ?? 10.0);
+  const [notaRecursoMin, setNotaRecursoMin] = useState<number>(initialRules.recursoMinGrade ?? 7.0);
+  const [dispensaExameVal, setDispensaExameVal] = useState<number>(initialRules.examWaiverGrade ?? 14.0);
+  const [bloqueioFracionario, setBloqueioFracionario] = useState<boolean>(initialRules.strictDecimal ?? true);
+  const [arredondamentoOficial, setArredondamentoOficial] = useState<boolean>(initialRules.roundHalfUp ?? true);
+
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const totalPeso = macPeso + ppPeso + ptPeso;
+  const isPesoValido = totalPeso === 100;
+
+  const triggerToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleReporPadraoMED = () => {
+    setMacPeso(30);
+    setPpPeso(30);
+    setPtPeso(40);
+    setNotaAprovacao(10.0);
+    setNotaRecursoMin(7.0);
+    setDispensaExameVal(14.0);
+    setBloqueioFracionario(true);
+    setArredondamentoOficial(true);
+
+    if (onUpdateSettings) {
+      onUpdateSettings({
+        gradeRules: {
+          macWeight: 30,
+          ppWeight: 30,
+          ptWeight: 40,
+          passingGrade: 10.0,
+          recursoMinGrade: 7.0,
+          examWaiverGrade: 14.0,
+          strictDecimal: true,
+          roundHalfUp: true
+        }
+      });
+    }
+
+    triggerToast('Parâmetros restaurados para a norma oficial MED de Angola: MAC 30%, PP 30%, PT 40%.');
+  };
+
+  const handleSaveRegras = () => {
+    if (!isPesoValido) {
+      alert(`Atenção: A soma dos pesos da Média Trimestral deve ser exatamente 100%. O valor atual é de ${totalPeso}%.`);
+      return;
+    }
+
+    const newGradeRules = {
+      macWeight: macPeso,
+      ppWeight: ppPeso,
+      ptWeight: ptPeso,
+      passingGrade: notaAprovacao,
+      recursoMinGrade: notaRecursoMin,
+      examWaiverGrade: dispensaExameVal,
+      strictDecimal: bloqueioFracionario,
+      roundHalfUp: arredondamentoOficial
+    };
+
+    if (onUpdateSettings) {
+      onUpdateSettings({ gradeRules: newGradeRules });
+    }
+
+    dbService.addAuditLog({
+      userName: dbService.getDatabase().currentUser?.name || 'Diretor Pedagógico',
+      userRole: 'Diretor Pedagógico',
+      action: 'Atualização do Regulamento de Notas',
+      details: `Pesos ajustados para MAC (${macPeso}%), PP (${ppPeso}%), PT (${ptPeso}%). Dispensa: ${dispensaExameVal} val.`,
+      module: 'pautas',
+      timestamp: 'Agora mesmo',
+      badgeColor: '#0b1f3a'
+    });
+
+    onSaveAll({
+      loadingMessage: 'A guardar regulamento de avaliação, pesos e escalas de notas...',
+      successMessage: 'Operação feita com sucesso!'
+    });
+    triggerToast('Regulamento de avaliação e escala de notas guardados com sucesso!');
+  };
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Toast Feedback */}
+      {toastMessage && (
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 shadow-xs">
+          <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Top Header */}
       <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -36,7 +127,7 @@ export const TabRegrasNotas: React.FC<TabRegrasNotasProps> = ({ settings, onSave
         </div>
 
         <span className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-800 font-mono text-xs font-bold self-start">
-          ESCALA OFICIAL 0 — 20
+          ESCALA OFICIAL 0 — 20 VALORES
         </span>
       </div>
 
@@ -60,8 +151,19 @@ export const TabRegrasNotas: React.FC<TabRegrasNotasProps> = ({ settings, onSave
               <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
                 Transição Direta
               </span>
-              <div className="font-headline text-2xl font-extrabold text-slate-900 mt-1">10.0 a 20.0</div>
-              <p className="text-xs text-slate-500 mt-1">
+              <div className="flex items-center gap-1 mt-1">
+                <input
+                  type="number"
+                  step="0.5"
+                  min="9"
+                  max="15"
+                  value={notaAprovacao}
+                  onChange={(e) => setNotaAprovacao(parseFloat(e.target.value) || 10)}
+                  className="w-16 px-2 py-1 bg-white border border-slate-300 rounded-lg font-headline text-xl font-extrabold text-slate-900 text-center outline-none focus:ring-1 focus:ring-[#0b1f3a]"
+                />
+                <span className="text-slate-600 font-bold text-sm">a 20.0</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
                 Aprovado por aproveitamento curricular sem necessidade de prova de recurso.
               </p>
             </div>
@@ -75,8 +177,19 @@ export const TabRegrasNotas: React.FC<TabRegrasNotasProps> = ({ settings, onSave
               <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">
                 Intervalo de Recurso
               </span>
-              <div className="font-headline text-2xl font-extrabold text-slate-900 mt-1">7.0 a 9.4</div>
-              <p className="text-xs text-slate-500 mt-1">
+              <div className="flex items-center gap-1 mt-1">
+                <input
+                  type="number"
+                  step="0.5"
+                  min="5"
+                  max="9.5"
+                  value={notaRecursoMin}
+                  onChange={(e) => setNotaRecursoMin(parseFloat(e.target.value) || 7)}
+                  className="w-16 px-2 py-1 bg-white border border-slate-300 rounded-lg font-headline text-xl font-extrabold text-slate-900 text-center outline-none focus:ring-1 focus:ring-[#0b1f3a]"
+                />
+                <span className="text-slate-600 font-bold text-sm">a {(notaAprovacao - 0.1).toFixed(1)}</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
                 Elegível para inscrição no Exame de Recurso (conforme limite de cadeiras em atraso).
               </p>
             </div>
@@ -90,13 +203,15 @@ export const TabRegrasNotas: React.FC<TabRegrasNotasProps> = ({ settings, onSave
               <span className="text-[10px] font-bold text-[#ac332b] uppercase tracking-wider">
                 Reprovação Direta
               </span>
-              <div className="font-headline text-2xl font-extrabold text-slate-900 mt-1">&lt; 7.0 Valores</div>
-              <p className="text-xs text-slate-500 mt-1">
-                Retenção automática no ano letivo. Sem direito a realização de prova de exame.
+              <div className="font-headline text-2xl font-extrabold text-[#ac332b] mt-1">
+                &lt; {notaRecursoMin.toFixed(1)}
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                Retenção automática no ano letivo. Sem direito a realização de prova de recurso.
               </p>
             </div>
             <div className="mt-3 pt-2 border-t border-slate-200 text-[11px] font-bold text-[#ac332b]">
-              Condição: Retido / Não Aprovado
+              Condição: Retido / Reprovado
             </div>
           </div>
 
@@ -105,13 +220,28 @@ export const TabRegrasNotas: React.FC<TabRegrasNotasProps> = ({ settings, onSave
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 Arredondamento Oficial
               </span>
-              <div className="font-headline text-2xl font-extrabold text-[#0b1f3a] mt-1">&gt;= 0.50</div>
-              <p className="text-xs text-slate-500 mt-1">
+              <div className="flex items-center justify-between mt-1">
+                <span className="font-headline text-2xl font-extrabold text-[#0b1f3a]">&gt;= 0.50</span>
+                <button
+                  type="button"
+                  onClick={() => setArredondamentoOficial(!arredondamentoOficial)}
+                  className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ${
+                    arredondamentoOficial ? 'bg-[#0b1f3a]' : 'bg-slate-300'
+                  }`}
+                >
+                  <div
+                    className={`w-3.5 h-3.5 rounded-full bg-white transition-transform absolute top-0.5 ${
+                      arredondamentoOficial ? 'right-0.5' : 'left-0.5'
+                    }`}
+                  />
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
                 Médias com centésimas superiores ou iguais a 0.50 arredondam para o valor inteiro acima (ex: 9.5 &rarr; 10).
               </p>
             </div>
             <div className="mt-3 pt-2 border-t border-slate-200 text-[11px] font-mono font-bold text-slate-700">
-              Regra Oficial Angolana
+              {arredondamentoOficial ? 'Ativado (Regra Oficial)' : 'Desativado (Truncar)'}
             </div>
           </div>
         </div>
@@ -152,92 +282,146 @@ export const TabRegrasNotas: React.FC<TabRegrasNotasProps> = ({ settings, onSave
             </p>
           </div>
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-100 font-mono text-xs font-bold text-slate-800 self-start">
-            MT = (MAC × 0.30) + (PP × 0.30) + (PT × 0.40)
+            MT = (MAC × {(macPeso / 100).toFixed(2)}) + (PP × {(ppPeso / 100).toFixed(2)}) + (PT × {(ptPeso / 100).toFixed(2)})
           </div>
+        </div>
+
+        {/* Validation bar */}
+        <div
+          className={`p-3 rounded-xl flex items-center justify-between text-xs font-bold ${
+            isPesoValido
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px]">
+              {isPesoValido ? 'check_circle' : 'warning'}
+            </span>
+            <span>
+              Soma total das ponderações: <strong>{totalPeso}%</strong>
+            </span>
+          </div>
+          {!isPesoValido && (
+            <span className="text-[11px] font-normal">
+              Ajuste os valores para que a soma seja exatamente 100%.
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col gap-2">
+          {/* MAC */}
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-slate-800 text-xs">Mini-Avaliações Contínuas (MAC)</span>
-              <span className="font-mono text-xs font-bold bg-[#0b1f3a] text-white px-2 py-0.5 rounded">
-                {macPeso}%
+              <span className="font-headline font-bold text-slate-900 text-sm">
+                MAC — Avaliação Contínua
               </span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={macPeso}
+                  onChange={(e) => setMacPeso(parseInt(e.target.value) || 0)}
+                  className="w-14 px-2 py-1 text-center font-bold bg-white border border-slate-300 rounded-lg text-slate-900"
+                />
+                <span className="font-bold text-slate-700 text-xs">%</span>
+              </div>
             </div>
             <p className="text-xs text-slate-500">
-              Mínimo de 3 notas por trimestre: trabalhos de casa, perguntas orais, fichas de sala e participação.
+              Trabalhos práticos, fichas laboratoriais, sumários orais e participação em sala de aula.
             </p>
-            <div className="mt-2 text-[11px] text-slate-600 font-medium">
-              Média Aritmética das notas lançadas
+            <div className="text-[11px] font-mono text-slate-600 font-semibold bg-white p-2 rounded-lg border border-slate-200">
+              Mínimo: 3 notas parcelares no trimestre
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col gap-2">
+          {/* PP */}
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-slate-800 text-xs">Prova do Professor (PP)</span>
-              <span className="font-mono text-xs font-bold bg-[#0b1f3a] text-white px-2 py-0.5 rounded">
-                {ppPeso}%
+              <span className="font-headline font-bold text-slate-900 text-sm">
+                PP — Prova Parcelar
               </span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={ppPeso}
+                  onChange={(e) => setPpPeso(parseInt(e.target.value) || 0)}
+                  className="w-14 px-2 py-1 text-center font-bold bg-white border border-slate-300 rounded-lg text-slate-900"
+                />
+                <span className="font-bold text-slate-700 text-xs">%</span>
+              </div>
             </div>
             <p className="text-xs text-slate-500">
-              1 Prova formal individual realizada a meio do trimestre pelo professor da turma.
+              Mini-teste individual de meio de trimestre realizado no horário normal da disciplina.
             </p>
-            <div className="mt-2 text-[11px] text-slate-600 font-medium">
-              Escala de 0 a 20 valores
+            <div className="text-[11px] font-mono text-slate-600 font-semibold bg-white p-2 rounded-lg border border-slate-200">
+              Mínimo: 1 teste escrito estruturado
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col gap-2">
+          {/* PT */}
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-slate-800 text-xs">Prova Trimestral de Escola (PT)</span>
-              <span className="font-mono text-xs font-bold bg-[#ac332b] text-white px-2 py-0.5 rounded">
-                {ptPeso}%
+              <span className="font-headline font-bold text-slate-900 text-sm">
+                PT — Prova Trimestral
               </span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={ptPeso}
+                  onChange={(e) => setPtPeso(parseInt(e.target.value) || 0)}
+                  className="w-14 px-2 py-1 text-center font-bold bg-white border border-slate-300 rounded-lg text-slate-900"
+                />
+                <span className="font-bold text-slate-700 text-xs">%</span>
+              </div>
             </div>
             <p className="text-xs text-slate-500">
-              Prova geral unificada elaborada e supervisionada pela Direção Pedagógica no final do trimestre.
+              Exame formal calendarizado pela Direção Pedagógica na última quinzena do trimestre.
             </p>
-            <div className="mt-2 text-[11px] text-slate-600 font-medium">
-              Escala de 0 a 20 valores
+            <div className="text-[11px] font-mono text-slate-600 font-semibold bg-white p-2 rounded-lg border border-slate-200">
+              Vigência: Prova obrigatória geral
             </div>
           </div>
-        </div>
-
-        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px] text-emerald-700">check_circle</span>
-            <span className="font-bold text-slate-800">
-              Validação de Balanço Ponderal: {macPeso}% + {ppPeso}% + {ptPeso}% = {totalPeso}%
-            </span>
-          </div>
-          <span className="font-mono text-[11px] text-emerald-800 font-bold bg-emerald-50 px-2.5 py-0.5 rounded border border-emerald-200">
-            Equilíbrio Válido (100%)
-          </span>
         </div>
       </section>
 
-      {/* Bloco 3: Classificação Final (CFA / CFD) */}
+      {/* Bloco 3: Regras de Exame Final e Dispensa */}
       <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col gap-4">
         <div className="pb-3 border-b border-slate-100">
           <h3 className="font-headline text-base lg:text-lg font-bold text-slate-900">
-            3. Classificação Anual & Fim de Ciclo (CAP / CFD)
+            3. Regime de Dispensa de Exame & Classificação Final (CF)
           </h3>
           <p className="text-xs text-slate-500">
-            Normas de transição entre trimestres e dispensa de exame final de ciclo.
+            Critérios para atribuição de dispensa automática de exame e ponderação entre CAP e Exame.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between gap-2">
             <div>
               <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
-                Classificação Anual Pedagógica (CAP)
+                Limiar Mínimo para Dispensa de Exame
               </span>
-              <div className="font-headline text-xl font-bold text-slate-900 mt-1 font-mono">
-                (MT1 + MT2 + MT3) ÷ 3
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="font-headline text-lg font-bold text-slate-700">&gt;=</span>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="10"
+                  max="18"
+                  value={dispensaExameVal}
+                  onChange={(e) => setDispensaExameVal(parseFloat(e.target.value) || 14)}
+                  className="w-20 px-2 py-1 bg-white border border-slate-300 rounded-lg font-headline text-2xl font-extrabold text-emerald-800 text-center outline-none focus:ring-1 focus:ring-[#0b1f3a]"
+                />
+                <span className="text-xs text-slate-500 font-semibold">Valores (CAP)</span>
               </div>
-              <p className="text-slate-500 text-[11px] mt-1">
-                Média aritmética direta dos três trimestres letivos do ano corrente.
+              <p className="text-slate-500 text-[11px] mt-2">
+                Alunos com Classificação Anual Provisória (CAP) igual ou superior a {dispensaExameVal.toFixed(1)} dispensam do exame final.
               </p>
             </div>
           </div>
@@ -245,30 +429,13 @@ export const TabRegrasNotas: React.FC<TabRegrasNotasProps> = ({ settings, onSave
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between gap-2">
             <div>
               <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
-                Dispensa de Exame Final
+                Classificação Final de Alunos em Exame
               </span>
-              <div className="flex items-baseline gap-1 mt-1">
-                <span className="font-headline text-2xl font-extrabold text-emerald-800">
-                  &gt;= {dispensaExameVal}
-                </span>
-                <span className="text-xs text-slate-500">Valores</span>
-              </div>
-              <p className="text-slate-500 text-[11px] mt-1">
-                Alunos com CAP igual ou superior a {dispensaExameVal} dispensam automaticamente do exame final.
-              </p>
-            </div>
-          </div>
-
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 flex flex-col justify-between gap-2">
-            <div>
-              <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
-                Alunos em Exame de Fim de Ano
-              </span>
-              <div className="font-headline text-xl font-bold text-slate-900 mt-1 font-mono">
+              <div className="font-headline text-xl font-bold text-slate-900 mt-2 font-mono">
                 (CAP × 0.40) + (Exame × 0.60)
               </div>
-              <p className="text-slate-500 text-[11px] mt-1">
-                Fórmula de Classificação Final (CF) para quem realiza prova de exame nos anos de exame nacional.
+              <p className="text-slate-500 text-[11px] mt-2">
+                Fórmula oficial do Ministério da Educação para alunos que prestam exame de fim de ano.
               </p>
             </div>
           </div>
@@ -352,7 +519,7 @@ export const TabRegrasNotas: React.FC<TabRegrasNotasProps> = ({ settings, onSave
         </div>
       </section>
 
-      {/* Bloco 5: Políticas de Trancamento e Retificação */}
+      {/* Bloco 5: Ações e Botão Guardar */}
       <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h4 className="font-bold text-slate-900 text-sm">
@@ -366,24 +533,18 @@ export const TabRegrasNotas: React.FC<TabRegrasNotasProps> = ({ settings, onSave
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => {
-              setMacPeso(30);
-              setPpPeso(30);
-              setPtPeso(40);
-              setDispensaExameVal('14.0');
-              alert('Parâmetros restaurados para o padrão oficial do Ministério da Educação de Angola.');
-            }}
-            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors"
+            onClick={handleReporPadraoMED}
+            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-colors cursor-pointer"
           >
             Repor Padrão MED
           </button>
           <button
             type="button"
-            onClick={onSaveAll}
-            className="px-4 py-2 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold text-xs transition-colors shadow-xs flex items-center gap-1.5"
+            onClick={handleSaveRegras}
+            className="px-5 py-2 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold text-xs transition-colors shadow-md flex items-center gap-1.5 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[16px]">save</span>
-            <span>Guardar Regras de Avaliação</span>
+            <span>Guardar</span>
           </button>
         </div>
       </div>

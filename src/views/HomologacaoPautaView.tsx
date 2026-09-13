@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { SchoolDatabase, UserRole } from '../types';
+import { runGlobalOperation } from '../context/OperationContext';
 
 interface HomologacaoPautaViewProps {
   db: SchoolDatabase;
@@ -175,18 +176,26 @@ export const HomologacaoPautaView: React.FC<HomologacaoPautaViewProps> = ({
       s.proc.toLowerCase().includes(searchFilter.toLowerCase())
   );
 
-  const handleHomologate = () => {
+  const handleHomologate = async () => {
     if (!isHonorDeclared) {
       alert('Por favor assinale a Declaração de Compromisso de Honra Ministerial antes de homologar.');
       return;
     }
-    setIsDirectorSigned(true);
-    setSignatureSuccess(true);
-    setTimeout(() => setSignatureSuccess(false), 4000);
+    await runGlobalOperation(
+      async () => {
+        setIsDirectorSigned(true);
+        setSignatureSuccess(true);
+        setTimeout(() => setSignatureSuccess(false), 4000);
+      },
+      {
+        loadingMessage: 'A homologar e assinar com chave digital (MED)...',
+        successMessage: 'Pauta homologada com sucesso!'
+      }
+    );
   };
 
   return (
-    <div className="flex flex-col w-full gap-6 pb-12">
+    <div className="flex flex-col w-full gap-6 pb-12 printable-document">
       {/* Screen Breadcrumb & Header */}
       <section className="space-y-3">
         <nav className="flex items-center gap-2 text-xs font-semibold tracking-wider text-slate-400 uppercase">
@@ -405,17 +414,17 @@ export const HomologacaoPautaView: React.FC<HomologacaoPautaViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="relative">
+            <div className="relative flex items-center border border-slate-400/30 bg-slate-50/60 rounded-none focus-within:border-slate-400/70 focus-within:bg-white transition-colors">
+              <span className="material-symbols-outlined ml-2.5 text-slate-400 text-[16px] shrink-0">
+                search
+              </span>
               <input
                 type="text"
                 placeholder="Filtrar aluno..."
                 value={searchFilter}
                 onChange={(e) => setSearchFilter(e.target.value)}
-                className="text-xs bg-white border border-slate-300 rounded-lg pl-3 pr-8 py-1.5 focus:ring-1 focus:ring-[#0b1f3a] w-48 shadow-xs"
+                className="text-xs bg-transparent border-0 border-none outline-none focus:ring-0 pl-2 pr-3 py-1.5 w-48 text-slate-800 placeholder:text-slate-400"
               />
-              <span className="material-symbols-outlined text-slate-400 absolute right-2.5 top-2 text-[16px]">
-                search
-              </span>
             </div>
             <button
               onClick={() => setSearchFilter('')}
@@ -636,8 +645,8 @@ export const HomologacaoPautaView: React.FC<HomologacaoPautaViewProps> = ({
                   {isDirectorSigned ? 'Homologado Definitivo' : 'Aguardando Despacho'}
                 </span>
               </div>
-              <p className="mt-2 font-bold text-slate-900 text-sm">Dr. Carlos Mendes</p>
-              <p className="text-slate-500 text-[11px]">Diretor Geral / Pedagógico BandMed</p>
+              <p className="mt-2 font-bold text-slate-900 text-sm">{db.settings?.directorGeral || 'A definir em Configurações'}</p>
+              <p className="text-slate-500 text-[11px]">Diretor Geral / Pedagógico • {db.settings?.schoolName}</p>
               <p className={`text-[11px] mt-2 font-mono ${isDirectorSigned ? 'text-emerald-700' : 'text-amber-800'}`}>
                 {isDirectorSigned
                   ? 'Chave Homologada: PKI-AO-2026-MED-SEC-09'

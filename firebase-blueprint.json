@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "SchoolData": {
+      "title": "SchoolData",
+      "description": "Complete institutional database sync document containing students, teachers, classes, invoices, and settings",
+      "type": "object",
+      "properties": {
+        "updatedAt": { "type": "string" },
+        "lastCloudSync": { "type": "string" }
+      }
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Student enrollment and academic record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "procNumber": { "type": "string" },
+        "classId": { "type": "string" }
+      }
+    },
+    "InstitutionSettings": {
+      "title": "InstitutionSettings",
+      "description": "School institutional parameters and configuration",
+      "type": "object",
+      "properties": {
+        "schoolName": { "type": "string" },
+        "nif": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/school_data/{documentId}": {
+      "schema": "SchoolData",
+      "description": "Main collection for real-time school system database synchronization"
+    },
+    "/students/{studentId}": {
+      "schema": "Student",
+      "description": "Individual student documents"
+    },
+    "/settings/{settingId}": {
+      "schema": "InstitutionSettings",
+      "description": "System institutional configuration"
+    }
+  }
+}

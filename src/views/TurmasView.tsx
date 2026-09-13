@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { SchoolDatabase, UserRole, ClassRoom, Course, Subject, EducationLevelId } from '../types';
+import { SchoolDatabase, UserRole, User, ClassRoom, Course, Subject, EducationLevelId, TimetableEntry } from '../types';
 import { dbService } from '../services/db';
+import { getAvailableSubjectsForUser } from '../utils/teacherSubjects';
 import {
   getActiveSubsystems,
   getAvailableGrades,
@@ -13,10 +14,22 @@ import {
 import { SearchableSelect, SearchableOption } from '../components/SearchableSelect';
 import { AsyncButton } from '../components/AsyncButton';
 import { FormModalHeader } from '../components/FormModalHeader';
+import { runGlobalOperation } from '../context/OperationContext';
+
+const defaultSubjects: Subject[] = [
+  { id: 'sub-def-1', name: 'Língua Portuguesa', code: 'LP', cycle: 'II Ciclo', weeklyHours: 5 },
+  { id: 'sub-def-2', name: 'Matemática A', code: 'MAT', cycle: 'II Ciclo', weeklyHours: 5 },
+  { id: 'sub-def-3', name: 'Física e Química A', code: 'FQ', cycle: 'II Ciclo', weeklyHours: 4 },
+  { id: 'sub-def-4', name: 'Biologia e Geologia', code: 'BG', cycle: 'II Ciclo', weeklyHours: 4 },
+  { id: 'sub-def-5', name: 'Inglês Técnico', code: 'ING', cycle: 'II Ciclo', weeklyHours: 3 },
+  { id: 'sub-def-6', name: 'Informática / TIC', code: 'TIC', cycle: 'II Ciclo', weeklyHours: 3 },
+  { id: 'sub-def-7', name: 'Educação Física', code: 'EF', cycle: 'II Ciclo', weeklyHours: 2 }
+];
 
 interface TurmasViewProps {
   db: SchoolDatabase;
   currentUserRole: UserRole;
+  currentUser?: User;
   onNavigateToAttendance: (classId: string) => void;
   onNavigateToStudents: (classId?: string) => void;
   onNavigateToPautas?: () => void;
@@ -24,6 +37,8 @@ interface TurmasViewProps {
 
 export const TurmasView: React.FC<TurmasViewProps> = ({
   db,
+  currentUserRole,
+  currentUser,
   onNavigateToAttendance,
   onNavigateToStudents,
   onNavigateToPautas
@@ -39,13 +54,19 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
     [db.settings?.selectedSubsystems]
   );
 
-  const cycleFilterOptions = useMemo(() => {
-    return ['Todos', ...activeSubsystems.map((s) => s.shortName)];
-  }, [activeSubsystems]);
-
   // Navigation tabs
-  const [activeTab, setActiveTab] = useState<'turmas' | 'cursos' | 'matriz'>('turmas');
-  const [selectedCycleFilter, setSelectedCycleFilter] = useState<string>('Todos');
+  const [activeTab, setActiveTab] = useState<'turmas' | 'horarios' | 'cursos' | 'matriz'>('turmas');
+
+  // Schedule Management State (Definir Horários por Disciplina e Período)
+  const [selectedTimetableClassId, setSelectedTimetableClassId] = useState<string>('');
+  const [slotDay, setSlotDay] = useState<
+    'Segunda-feira' | 'Terça-feira' | 'Quarta-feira' | 'Quinta-feira' | 'Sexta-feira'
+  >('Segunda-feira');
+  const [slotTimeStart, setSlotTimeStart] = useState('07:30');
+  const [slotTimeEnd, setSlotTimeEnd] = useState('08:15');
+  const [slotSubject, setSlotSubject] = useState('');
+  const [slotTeacher, setSlotTeacher] = useState('');
+  const [slotRoom, setSlotRoom] = useState('');
 
   // Search queries
   const [turmaSearch, setTurmaSearch] = useState('');
@@ -105,7 +126,9 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
 
   // Real Database Lists
   const classesList = db.classes || [];
-  const subjectsList = db.subjects || [];
+  const subjectsList = useMemo(() => {
+    return getAvailableSubjectsForUser(db, currentUser);
+  }, [db, currentUser]);
   const coursesList = db.courses || [];
   const teachersList = db.teachers || [];
   const studentsList = db.students || [];
@@ -225,6 +248,17 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
     }
   }, [newClassGrade, isUpperLevel, coursesForSelectedGrade, availableAreasForGrade, newClassSection]);
 
+  // Subject options for SearchableSelect
+  const subjectOptions: SearchableOption[] = useMemo(() => {
+    return subjectsList.map((s) => ({
+      value: s.name,
+      label: s.name,
+      sublabel: `${s.code} • ${s.area || s.cycle}`,
+      badge: `${s.weeklyHours}h/sem`,
+      icon: 'menu_book'
+    }));
+  }, [subjectsList]);
+
   // Teacher options for SearchableSelect
   const teacherOptions: SearchableOption[] = useMemo(() => {
     return teachersList.map((t) => ({
@@ -242,10 +276,51 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       value: s.name,
       label: s.name,
       sublabel: `Processo nº ${s.procNumber} • Turma: ${s.className || 'Não alocado'}`,
-      avatar: s.avatar,
+      avatar: s.avatar || s.docPassPhoto,
       badge: `Nº ${s.procNumber}`
     }));
   }, [studentsList]);
+
+  // Alunos filtrados para a turma/ano em criação para eleição de Delegado
+  const newClassStudentOptions: SearchableOption[] = useMemo(() => {
+    const filtered = studentsList.filter((s) => {
+      if (newClassName && s.className === newClassName) return true;
+      if (newClassGrade && (s.grade === newClassGrade || s.className?.startsWith(newClassGrade))) return true;
+      return !s.classId || s.className === 'Não alocado';
+    });
+    const listToUse = filtered.length > 0 ? filtered : studentsList;
+    return listToUse.map((s) => ({
+      value: s.name,
+      label: s.name,
+      sublabel: `Processo nº ${s.procNumber} • ${s.className || s.grade || 'Não alocado'}`,
+      avatar: s.avatar || s.docPassPhoto,
+      badge: `Proc: ${s.procNumber}`
+    }));
+  }, [studentsList, newClassName, newClassGrade]);
+
+  // Alunos matriculados especificamente na turma em edição para eleição de Delegado
+  const editingClassStudentOptions: SearchableOption[] = useMemo(() => {
+    if (!editingClass) return [];
+    const enrolled = studentsList.filter(
+      (s) => String(s.classId) === String(editingClass.id) || s.className === editingClass.name
+    );
+    return enrolled.map((s) => ({
+      value: s.name,
+      label: s.name,
+      sublabel: `Processo nº ${s.procNumber} • ${s.biNumber || s.className || 'Matriculado'}`,
+      avatar: s.avatar || s.docPassPhoto,
+      badge: `Proc: ${s.procNumber}`
+    }));
+  }, [editingClass, studentsList]);
+
+  // Turma selecionada para a secção de Definir Horários
+  const activeTimetableClass = useMemo(() => {
+    return (
+      classesList.find((c) => c.id === selectedTimetableClassId) ||
+      classesList[0] ||
+      null
+    );
+  }, [classesList, selectedTimetableClassId]);
 
   // Course options for SearchableSelect
   const courseOptions: SearchableOption[] = useMemo(() => {
@@ -504,25 +579,6 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
     const q = turmaSearch.toLowerCase().trim();
     return classesList.filter((cls) => {
       if (!cls) return false;
-      // Cycle filter
-      if (selectedCycleFilter !== 'Todos') {
-        const targetSub = activeSubsystems.find((s) => s.shortName === selectedCycleFilter);
-        if (targetSub) {
-          const subAreas = targetSub.defaultAreas || targetSub.coursesOrAreas || [];
-          const gradeMatches = (targetSub.grades || []).some(
-            (g) => cls.grade === g || (cls.grade && cls.grade.toLowerCase().includes(g.toLowerCase()))
-          );
-          const cycleMatches = Boolean(
-            cls.cycle &&
-              (cls.cycle.toLowerCase().includes((targetSub.shortName || '').toLowerCase()) ||
-                cls.cycle.toLowerCase().includes((targetSub.name || '').toLowerCase()))
-          );
-          const areaMatches = Boolean(
-            cls.area && subAreas.some((a) => (cls.area || '').toLowerCase().includes(a.toLowerCase()))
-          );
-          if (!gradeMatches && !cycleMatches && !areaMatches) return false;
-        }
-      }
       // Text search
       if (!q) return true;
       return (
@@ -534,7 +590,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
         (cls.delegateName || '').toLowerCase().includes(q)
       );
     });
-  }, [classesList, selectedCycleFilter, activeSubsystems, turmaSearch]);
+  }, [classesList, turmaSearch]);
 
   const filteredCourses = useMemo(() => {
     const q = cursoSearch.toLowerCase().trim();
@@ -571,17 +627,120 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
     return filteredSubjects.slice(start, start + itemsPerPage);
   }, [filteredSubjects, disciplinePage, itemsPerPage]);
 
-  // Timetable helper
+  // Timetable helpers & structure
+  const getStandardSlotsForShift = (shift: string) => {
+    if (shift === 'Tarde') {
+      return [
+        { label: '1º Tempo (12:45 - 13:30)', start: '12:45', end: '13:30', isBreak: false },
+        { label: '2º Tempo (13:30 - 14:15)', start: '13:30', end: '14:15', isBreak: false },
+        { label: 'INTERVALO (14:15 - 14:45)', start: '14:15', end: '14:45', isBreak: true },
+        { label: '3º Tempo (14:45 - 15:30)', start: '14:45', end: '15:30', isBreak: false },
+        { label: '4º Tempo (15:30 - 16:15)', start: '15:30', end: '16:15', isBreak: false },
+        { label: 'INTERVALO (16:15 - 16:30)', start: '16:15', end: '16:30', isBreak: true },
+        { label: '5º Tempo (16:30 - 17:15)', start: '16:30', end: '17:15', isBreak: false }
+      ];
+    }
+    return [
+      { label: '1º Tempo (07:30 - 08:15)', start: '07:30', end: '08:15', isBreak: false },
+      { label: '2º Tempo (08:15 - 09:00)', start: '08:15', end: '09:00', isBreak: false },
+      { label: 'INTERVALO (09:00 - 09:30)', start: '09:00', end: '09:30', isBreak: true },
+      { label: '3º Tempo (09:30 - 10:15)', start: '09:30', end: '10:15', isBreak: false },
+      { label: '4º Tempo (10:15 - 11:00)', start: '10:15', end: '11:00', isBreak: false },
+      { label: 'INTERVALO (11:00 - 11:15)', start: '11:00', end: '11:15', isBreak: true },
+      { label: '5º Tempo (11:15 - 12:00)', start: '11:15', end: '12:00', isBreak: false }
+    ];
+  };
+
   const getWeeklyTimetable = (cls: ClassRoom | null) => {
     if (!cls) return [];
-    return [
-      { time: '07:30 - 08:15', seg: 'Matemática Geral', ter: 'Física Experimental', qua: 'Biologia Celular', qui: 'Língua Portuguesa', sex: 'Química Geral' },
-      { time: '08:15 - 09:00', seg: 'Matemática Geral', ter: 'Física Experimental', qua: 'Biologia Celular', qui: 'Língua Portuguesa', sex: 'Química Geral' },
-      { time: '09:00 - 09:30', seg: 'INTERVALO', ter: 'INTERVALO', qua: 'INTERVALO', qui: 'INTERVALO', sex: 'INTERVALO' },
-      { time: '09:30 - 10:15', seg: 'Química Lab.', ter: 'Matemática Geral', qua: 'Inglês Técnico', qui: 'Educação Física', sex: 'Geometria Descritiva' },
-      { time: '10:15 - 11:00', seg: 'Química Lab.', ter: 'Matemática Geral', qua: 'Inglês Técnico', qui: 'Educação Física', sex: 'Formação Cívica' },
-      { time: '11:15 - 12:00', seg: 'Informática / TIC', ter: 'Biologia Celular', qua: 'História de Angola', qui: 'Matemática Geral', sex: 'Apoio ao Estudo' }
-    ];
+    const isMorning = cls.shift !== 'Tarde';
+    const slots = isMorning
+      ? [
+          { time: '07:30 - 08:15', start: '07:30', isBreak: false },
+          { time: '08:15 - 09:00', start: '08:15', isBreak: false },
+          { time: '09:00 - 09:30', start: '09:00', isBreak: true },
+          { time: '09:30 - 10:15', start: '09:30', isBreak: false },
+          { time: '10:15 - 11:00', start: '10:15', isBreak: false },
+          { time: '11:00 - 11:15', start: '11:00', isBreak: true },
+          { time: '11:15 - 12:00', start: '11:15', isBreak: false }
+        ]
+      : [
+          { time: '12:45 - 13:30', start: '12:45', isBreak: false },
+          { time: '13:30 - 14:15', start: '13:30', isBreak: false },
+          { time: '14:15 - 14:45', start: '14:15', isBreak: true },
+          { time: '14:45 - 15:30', start: '14:45', isBreak: false },
+          { time: '15:30 - 16:15', start: '15:30', isBreak: false },
+          { time: '16:15 - 16:30', start: '16:15', isBreak: true },
+          { time: '16:30 - 17:15', start: '16:30', isBreak: false }
+        ];
+
+    // Buscar tempos da base de dados para esta turma
+    const dbEntries = (db.timetable || []).filter((t) => String(t.classId) === String(cls.id));
+
+    if (dbEntries.length > 0) {
+      return slots.map((s) => {
+        if (s.isBreak) {
+          return {
+            time: s.time,
+            isBreak: true,
+            seg: { subject: 'INTERVALO' },
+            ter: { subject: 'INTERVALO' },
+            qua: { subject: 'INTERVALO' },
+            qui: { subject: 'INTERVALO' },
+            sex: { subject: 'INTERVALO' }
+          };
+        }
+
+        const getEntry = (dayName: string) => {
+          const match = dbEntries.find(
+            (e) =>
+              e.dayOfWeek.toLowerCase().startsWith(dayName.toLowerCase()) &&
+              (e.timeStart === s.start || e.timeStart.startsWith(s.start.substring(0, 4)))
+          );
+          if (!match) return null;
+          return {
+            subject: match.subject,
+            teacher: match.teacherName,
+            room: match.room || cls.room
+          };
+        };
+
+        return {
+          time: s.time,
+          isBreak: false,
+          seg: getEntry('Segunda'),
+          ter: getEntry('Terça'),
+          qua: getEntry('Quarta'),
+          qui: getEntry('Quinta'),
+          sex: getEntry('Sexta')
+        };
+      });
+    }
+
+    // Caso não tenha sido definido ainda na base de dados, apresentar estado real de "por definir"
+    // (sem inventar disciplinas/docentes que não foram alocados pela Coordenação).
+    return slots.map((s) => {
+      if (s.isBreak) {
+        return {
+          time: s.time,
+          isBreak: true,
+          seg: { subject: 'INTERVALO' },
+          ter: { subject: 'INTERVALO' },
+          qua: { subject: 'INTERVALO' },
+          qui: { subject: 'INTERVALO' },
+          sex: { subject: 'INTERVALO' }
+        };
+      }
+      return {
+        time: s.time,
+        isBreak: false,
+        seg: null,
+        ter: null,
+        qua: null,
+        qui: null,
+        sex: null
+      };
+    });
   };
 
   return (
@@ -740,6 +899,19 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('horarios')}
+            className={`px-4 py-2 rounded-xl font-bold text-xs transition-all duration-200 active:scale-[0.98] cursor-pointer shrink-0 flex items-center gap-2 ${
+              activeTab === 'horarios'
+                ? 'bg-[#0b1f3a] text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+            type="button"
+          >
+            <span className="material-symbols-outlined text-[16px]">calendar_month</span>
+            <span>Definir Horários</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('cursos')}
             className={`px-4 py-2 rounded-xl font-bold text-xs transition-all duration-200 active:scale-[0.98] cursor-pointer shrink-0 flex items-center gap-2 ${
               activeTab === 'cursos'
@@ -774,28 +946,6 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
             <span>Mapa de Salas ({realRooms.length})</span>
           </button>
         </div>
-
-        {/* Sub-Filters for Cycle */}
-        {activeTab === 'turmas' && (
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end overflow-x-auto">
-            <div className="flex bg-slate-100 p-1 rounded-xl gap-1 shrink-0">
-              {cycleFilterOptions.map((opt) => (
-                <button
-                  key={opt}
-                  onClick={() => setSelectedCycleFilter(opt)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                    selectedCycleFilter === opt
-                      ? 'bg-white shadow-xs text-[#0b1f3a]'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                  type="button"
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ========================================================================= */}
@@ -817,14 +967,14 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[16px]">
+              <div className="relative flex items-center border border-slate-400/30 bg-slate-50/60 rounded-none focus-within:border-slate-400/70 focus-within:bg-white transition-colors">
+                <span className="material-symbols-outlined ml-2.5 text-slate-400 text-[16px] shrink-0">
                   search
                 </span>
                 <input
                   value={turmaSearch}
                   onChange={(e) => setTurmaSearch(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 text-slate-800 rounded-xl text-xs shadow-xs outline-none focus:ring-1 focus:ring-[#0b1f3a] w-64"
+                  className="pl-2 pr-3 py-1.5 bg-transparent border-0 border-none outline-none focus:ring-0 text-slate-800 text-xs w-64 placeholder:text-slate-400"
                   placeholder="Pesquisar turma, curso, sala ou diretor..."
                   type="text"
                 />
@@ -1047,8 +1197,414 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 2: LISTAGEM DE CURSOS EM TABELA (Cabeçalho Azul #0b1f3a) */}
+      {/* TAB HORÁRIOS: DEFINIR HORÁRIOS POR DISCIPLINA E PERÍODO DE CADA TURMA     */}
       {/* ========================================================================= */}
+      {activeTab === 'horarios' && (
+        <div className="flex flex-col gap-6">
+          {/* Header e Seleção de Turma */}
+          <div className="bg-white p-5 rounded-none border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-none bg-[#0b1f3a] text-white flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[24px]">calendar_month</span>
+              </div>
+              <div>
+                <h2 className="font-headline text-lg font-bold text-slate-900 tracking-tight">
+                  Definição de Horários por Disciplina e Período
+                </h2>
+                <span className="text-xs text-slate-500 block">
+                  Alocação curricular por tempos lectivos e base de dados oficial para cada turma
+                </span>
+              </div>
+            </div>
+
+            {/* Selector de Turma */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Turma:
+                </label>
+                <select
+                  value={activeTimetableClass?.id || ''}
+                  onChange={(e) => {
+                    setSelectedTimetableClassId(e.target.value);
+                    const chosen = classesList.find((c) => c.id === e.target.value);
+                    if (chosen) {
+                      setSlotRoom(chosen.room || 'Sala B-104');
+                    }
+                  }}
+                  className="px-3 py-2 bg-white border border-slate-300 rounded-none text-xs font-bold text-slate-800 focus:outline-none focus:border-[#0b1f3a]"
+                >
+                  {classesList.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.grade} • {c.shift} • {c.room})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {activeTimetableClass && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedScheduleClass(activeTimetableClass)}
+                  className="px-3.5 py-2 rounded-none bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[16px]">visibility</span>
+                  <span>Ver Horário da Turma</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {activeTimetableClass && (
+            <>
+              {/* Informações da Turma e Ações Rápidas */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="bg-white p-4 rounded-none border border-slate-200 shadow-xs">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Turma & Nível</span>
+                  <div className="font-headline text-base font-extrabold text-[#0b1f3a] mt-1">
+                    {activeTimetableClass.name}
+                  </div>
+                  <span className="text-xs text-slate-600 font-medium">
+                    {activeTimetableClass.grade} • {activeTimetableClass.cycle || 'Ensino Geral'}
+                  </span>
+                </div>
+
+                <div className="bg-white p-4 rounded-none border border-slate-200 shadow-xs">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Turno & Sala Física</span>
+                  <div className="font-headline text-base font-extrabold text-[#0b1f3a] mt-1">
+                    {activeTimetableClass.shift}
+                  </div>
+                  <span className="text-xs text-slate-600 font-medium">
+                    {activeTimetableClass.room || 'Sala B-104'}
+                  </span>
+                </div>
+
+                <div className="bg-white p-4 rounded-none border border-slate-200 shadow-xs">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Diretor(a) de Turma</span>
+                  <div className="font-headline text-base font-extrabold text-[#0b1f3a] mt-1 truncate">
+                    {activeTimetableClass.headTeacherName || 'A designar'}
+                  </div>
+                  <span className="text-xs text-slate-600 font-medium truncate block">
+                    Delegado: {activeTimetableClass.delegateName || 'A eleger'}
+                  </span>
+                </div>
+
+                <div className="bg-white p-4 rounded-none border border-slate-200 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Tempos na Base de Dados</span>
+                    <div className="font-headline text-base font-extrabold text-[#0b1f3a] mt-1 flex items-center gap-1.5">
+                      <span>{(db.timetable || []).filter((t) => String(t.classId) === String(activeTimetableClass.id)).length} Tempos</span>
+                    </div>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
+                    <AsyncButton
+                      type="button"
+                      variant="outline"
+                      loadingText="A gerar matriz..."
+                      successText="Operação feita com sucesso!"
+                      onAsyncClick={async () => {
+                        const slots = getStandardSlotsForShift(activeTimetableClass.shift).filter((s) => !s.isBreak);
+                        const days: ('Segunda-feira' | 'Terça-feira' | 'Quarta-feira' | 'Quinta-feira' | 'Sexta-feira')[] = [
+                          'Segunda-feira',
+                          'Terça-feira',
+                          'Quarta-feira',
+                          'Quinta-feira',
+                          'Sexta-feira'
+                        ];
+                        const subs = subjectsList.length > 0 ? subjectsList : defaultSubjects;
+                        const entries: Omit<TimetableEntry, 'id' | 'classId'>[] = [];
+                        let counter = 0;
+                        for (const d of days) {
+                          for (const s of slots) {
+                            const sub = subs[counter % subs.length];
+                            const teacher =
+                              teachersList[counter % (teachersList.length || 1)]?.name ||
+                              activeTimetableClass.headTeacherName ||
+                              'Docente Titular';
+                            entries.push({
+                              dayOfWeek: d,
+                              timeStart: s.start,
+                              timeEnd: s.end,
+                              subject: sub.name,
+                              teacherName: teacher,
+                              room: activeTimetableClass.room || 'Sala B-104'
+                            });
+                            counter++;
+                          }
+                        }
+                        dbService.setTimetableForClass(activeTimetableClass.id, entries);
+                      }}
+                      className="text-[10px] py-1 px-2 font-bold uppercase"
+                    >
+                      Pré-Preencher Matriz
+                    </AsyncButton>
+
+                    <AsyncButton
+                      type="button"
+                      variant="outline"
+                      loadingText="A limpar matriz..."
+                      successText="Operação feita com sucesso!"
+                      onAsyncClick={async () => {
+                        dbService.setTimetableForClass(activeTimetableClass.id, []);
+                      }}
+                      className="text-[10px] py-1 px-2 font-bold uppercase text-red-700 hover:bg-red-50 border border-red-200 cursor-pointer"
+                      title="Limpar todos os tempos lectivos desta turma"
+                    >
+                      Limpar
+                    </AsyncButton>
+                  </div>
+                </div>
+              </div>
+
+              {/* Formulário: Alocar / Definir Tempo Lectivo */}
+              <div className="bg-white p-5 rounded-none border border-slate-200 shadow-xs">
+                <div className="flex items-center gap-2 pb-3 border-b border-slate-200 mb-4">
+                  <span className="material-symbols-outlined text-[20px] text-[#0b1f3a]">add_circle</span>
+                  <h3 className="font-headline text-sm font-bold text-slate-900 uppercase tracking-wide">
+                    Definir / Alocar Tempo Lectivo — {activeTimetableClass.name}
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+                  {/* Dia da Semana */}
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-1">
+                      Dia da Semana
+                    </label>
+                    <select
+                      value={slotDay}
+                      onChange={(e) => setSlotDay(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none text-xs font-bold text-slate-800 focus:outline-none focus:border-[#0b1f3a]"
+                    >
+                      <option value="Segunda-feira">Segunda-feira</option>
+                      <option value="Terça-feira">Terça-feira</option>
+                      <option value="Quarta-feira">Quarta-feira</option>
+                      <option value="Quinta-feira">Quinta-feira</option>
+                      <option value="Sexta-feira">Sexta-feira</option>
+                    </select>
+                  </div>
+
+                  {/* Horário / Tempo Lectivo */}
+                  <div>
+                    <label className="block font-bold text-slate-700 uppercase tracking-wider text-[11px] mb-1">
+                      Período / Tempo Lectivo
+                    </label>
+                    <select
+                      value={`${slotTimeStart}-${slotTimeEnd}`}
+                      onChange={(e) => {
+                        const [start, end] = e.target.value.split('-');
+                        setSlotTimeStart(start);
+                        setSlotTimeEnd(end);
+                      }}
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none text-xs font-bold text-slate-800 focus:outline-none focus:border-[#0b1f3a]"
+                    >
+                      {getStandardSlotsForShift(activeTimetableClass.shift)
+                        .filter((s) => !s.isBreak)
+                        .map((slot, sIdx) => (
+                          <option key={sIdx} value={`${slot.start}-${slot.end}`}>
+                            {slot.label}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  {/* Disciplina */}
+                  <div>
+                    <SearchableSelect
+                      label="Disciplina"
+                      options={subjectOptions}
+                      value={slotSubject}
+                      onChange={(val) => setSlotSubject(val)}
+                      placeholder="Selecionar disciplina..."
+                      allowCustom={true}
+                      emptyMessage="Nenhuma disciplina cadastrada"
+                    />
+                  </div>
+
+                  {/* Docente */}
+                  <div>
+                    <SearchableSelect
+                      label="Docente / Professor"
+                      options={teacherOptions}
+                      value={slotTeacher}
+                      onChange={(val) => {
+                        const foundTeacher = teachersList.find((t) => t.id === val || t.name === val);
+                        setSlotTeacher(foundTeacher ? foundTeacher.name : val);
+                      }}
+                      placeholder="Docente titular..."
+                      allowCustom={true}
+                      emptyMessage="Nenhum docente cadastrado"
+                    />
+                  </div>
+
+                  {/* Botão de Gravar Tempo */}
+                  <div>
+                    <AsyncButton
+                      type="button"
+                      variant="primary"
+                      icon="save"
+                      loadingText="A gravar no horário..."
+                      successText="Operação feita com sucesso!"
+                      onAsyncClick={async () => {
+                        if (!slotSubject.trim()) return;
+                        const teacherName = slotTeacher.trim() || activeTimetableClass.headTeacherName || 'Docente Titular';
+                        const roomName = slotRoom.trim() || activeTimetableClass.room || 'Sala B-104';
+                        dbService.saveTimetableEntry({
+                          classId: activeTimetableClass.id,
+                          dayOfWeek: slotDay,
+                          timeStart: slotTimeStart,
+                          timeEnd: slotTimeEnd,
+                          subject: slotSubject.trim(),
+                          teacherName,
+                          room: roomName
+                        });
+                        setSlotSubject('');
+                      }}
+                      className="w-full h-[38px] text-xs font-bold uppercase tracking-wider"
+                    >
+                      CADASTRAR
+                    </AsyncButton>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabela Interativa de Horários da Turma */}
+              <div className="bg-white rounded-none border border-slate-200 shadow-xs overflow-hidden">
+                <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-[#0b1f3a]">grid_on</span>
+                    <h3 className="font-headline text-sm font-bold text-slate-900 uppercase tracking-wide">
+                      Grelha Semanal Interativa — {activeTimetableClass.name}
+                    </h3>
+                  </div>
+                  <span className="text-xs text-slate-500 font-medium">
+                    Clique em <strong className="text-red-700">X</strong> para remover um tempo da base de dados
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-[#0b1f3a] text-white font-bold text-xs uppercase tracking-wider">
+                        <th className="py-3 px-4 w-36 border-r border-slate-700">Horário / Tempo</th>
+                        <th className="py-3 px-4 border-r border-slate-700">Segunda-feira</th>
+                        <th className="py-3 px-4 border-r border-slate-700">Terça-feira</th>
+                        <th className="py-3 px-4 border-r border-slate-700">Quarta-feira</th>
+                        <th className="py-3 px-4 border-r border-slate-700">Quinta-feira</th>
+                        <th className="py-3 px-4">Sexta-feira</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {getStandardSlotsForShift(activeTimetableClass.shift).map((slot, rIdx) => {
+                        if (slot.isBreak) {
+                          return (
+                            <tr key={rIdx} className="bg-amber-50/70 text-amber-900 font-bold">
+                              <td className="py-2.5 px-4 font-mono font-bold bg-amber-100/50 border-r border-slate-200">
+                                {slot.start} - {slot.end}
+                              </td>
+                              <td colSpan={5} className="py-2.5 px-4 text-center tracking-wider text-xs uppercase">
+                                ✦ INTERVALO / RECREIO DOS ALUNOS ✦
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        const daysList: ('Segunda-feira' | 'Terça-feira' | 'Quarta-feira' | 'Quinta-feira' | 'Sexta-feira')[] = [
+                          'Segunda-feira',
+                          'Terça-feira',
+                          'Quarta-feira',
+                          'Quinta-feira',
+                          'Sexta-feira'
+                        ];
+
+                        return (
+                          <tr key={rIdx} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-3 px-4 font-mono font-bold text-slate-800 bg-slate-50 border-r border-slate-200">
+                              <div>{slot.label.split('(')[0]}</div>
+                              <div className="text-[10px] text-slate-500 font-normal">{slot.start} - {slot.end}</div>
+                            </td>
+
+                            {daysList.map((dayName, dIdx) => {
+                              const entry = (db.timetable || []).find(
+                                (t) =>
+                                  String(t.classId) === String(activeTimetableClass.id) &&
+                                  t.dayOfWeek.toLowerCase().startsWith(dayName.toLowerCase().substring(0, 3)) &&
+                                  (t.timeStart === slot.start || t.timeStart.startsWith(slot.start.substring(0, 4)))
+                              );
+
+                              return (
+                                <td key={dIdx} className="py-3 px-3 border-r border-slate-200 align-top">
+                                  {entry ? (
+                                    <div className="bg-slate-50 border border-slate-200 p-2 relative group hover:border-[#0b1f3a] transition-all">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          runGlobalOperation(
+                                            async () => {
+                                              dbService.deleteTimetableEntry(entry.id);
+                                            },
+                                            {
+                                              loadingMessage: 'A eliminar tempo lectivo...',
+                                              successMessage: 'Operação feita com sucesso!'
+                                            }
+                                          )
+                                        }
+                                        className="absolute top-1 right-1 text-slate-400 hover:text-red-700 p-0.5 transition-colors cursor-pointer"
+                                        title="Remover tempo da base de dados"
+                                      >
+                                        <span className="material-symbols-outlined text-[14px]">close</span>
+                                      </button>
+                                      <div className="font-bold text-[#0b1f3a] text-xs leading-tight pr-4">
+                                        {entry.subject}
+                                      </div>
+                                      <div className="text-[11px] text-slate-600 font-medium mt-1 truncate">
+                                        {entry.teacherName}
+                                      </div>
+                                      <div className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                        {entry.room || activeTimetableClass.room}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSlotDay(dayName);
+                                        setSlotTimeStart(slot.start);
+                                        setSlotTimeEnd(slot.end);
+                                      }}
+                                      className="w-full py-3 px-2 border border-dashed border-slate-300 hover:border-[#0b1f3a] hover:bg-blue-50/50 text-slate-400 hover:text-[#0b1f3a] text-center text-[11px] font-medium transition-all cursor-pointer"
+                                    >
+                                      + Alocar
+                                    </button>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="text-xs text-slate-500 font-medium">
+                    Horários sincronizados automaticamente na base de dados institucional.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedScheduleClass(activeTimetableClass)}
+                    className="px-4 py-2 rounded-none bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">print</span>
+                    <span>Visualizar Ficha & Imprimir Horário Oficial</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
       {activeTab === 'cursos' && (
         <div className="flex flex-col gap-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -1065,14 +1621,14 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[16px]">
+              <div className="relative flex items-center border border-slate-400/30 bg-slate-50/60 rounded-none focus-within:border-slate-400/70 focus-within:bg-white transition-colors">
+                <span className="material-symbols-outlined ml-2.5 text-slate-400 text-[16px] shrink-0">
                   search
                 </span>
                 <input
                   value={cursoSearch}
                   onChange={(e) => setCursoSearch(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 text-slate-800 rounded-xl text-xs shadow-xs outline-none focus:ring-1 focus:ring-[#0b1f3a] w-64"
+                  className="pl-2 pr-3 py-1.5 bg-transparent border-0 border-none outline-none focus:ring-0 text-slate-800 text-xs w-64 placeholder:text-slate-400"
                   placeholder="Pesquisar curso, código ou coordenador..."
                   type="text"
                 />
@@ -1250,8 +1806,8 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[16px]">
+              <div className="relative flex items-center border border-slate-400/30 bg-slate-50/60 rounded-none focus-within:border-slate-400/70 focus-within:bg-white transition-colors">
+                <span className="material-symbols-outlined ml-2.5 text-slate-400 text-[16px] shrink-0">
                   search
                 </span>
                 <input
@@ -1260,7 +1816,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     setDisciplineSearch(e.target.value);
                     setDisciplinePage(1);
                   }}
-                  className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 text-slate-800 rounded-xl text-xs shadow-xs outline-none focus:ring-1 focus:ring-[#0b1f3a] w-56"
+                  className="pl-2 pr-3 py-1.5 bg-transparent border-0 border-none outline-none focus:ring-0 text-slate-800 text-xs w-56 placeholder:text-slate-400"
                   placeholder="Filtrar disciplina ou código..."
                   type="text"
                 />
@@ -1544,7 +2100,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   className="px-4 py-2 rounded-none bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold text-xs transition-colors cursor-pointer"
                   type="button"
                 >
-                  Fechar Resumo
+                  Fechar
                 </button>
               </div>
             </div>
@@ -1727,17 +2283,20 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                 />
               </div>
 
-              {/* DELEGADO DE TURMA COM BUSCA AUTOMÁTICA DE ALUNOS */}
+              {/* DELEGADO DE TURMA COM BUSCA AUTOMÁTICA DE ALUNOS NA TURMA/ANO */}
               <div>
                 <SearchableSelect
                   label="Delegado(a) de Turma"
-                  options={studentOptions}
+                  options={newClassStudentOptions}
                   value={newClassDelegate}
-                  onChange={(val) => setNewClassDelegate(val)}
-                  placeholder="Pesquisar aluno por nome, processo ou digite manualmente..."
+                  onChange={(val) => {
+                    const found = studentsList.find((s) => s.id === val || s.name === val);
+                    setNewClassDelegate(found ? found.name : val);
+                  }}
+                  placeholder="Pesquisar aluno desta turma/ano ou digite manualmente..."
                   allowCustom={true}
-                  emptyMessage="Nenhum aluno encontrado (pode digitar o nome manualmente)"
-                  helperText="Busca estudantes matriculados ou permite digitar se ainda não foi eleito."
+                  emptyMessage="Nenhum aluno encontrado para este ano/turma"
+                  helperText="Filtra alunos desta classe/turma ou sem turma alocada."
                 />
               </div>
 
@@ -1753,8 +2312,8 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   type="button"
                   variant="primary"
                   icon="save"
-                  loadingText="A gravar turma..."
-                  successText="Turma Gravada com Sucesso!"
+                  loadingText="A cadastrar turma..."
+                  successText="Operação feita com sucesso!"
                   onAsyncClick={async () => {
                     if (!newClassName.trim()) return;
                     const teacherObj = teachersList.find((t) => t.id === newClassHeadTeacherId) || teachersList[0];
@@ -1777,7 +2336,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   }}
                   onSuccessComplete={() => setShowNovaTurmaModal(false)}
                 >
-                  Gravar Turma na Base de Dados
+                  CADASTRAR
                 </AsyncButton>
               </div>
             </form>
@@ -1899,7 +2458,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   variant="primary"
                   icon="school"
                   loadingText="A registar curso..."
-                  successText="Curso Registado com Sucesso!"
+                  successText="Operação feita com sucesso!"
                   onAsyncClick={async () => {
                     if (!newCourseName.trim() || !newCourseCode.trim()) return;
                     const cycleLabel =
@@ -1920,7 +2479,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   }}
                   onSuccessComplete={() => setShowNovoCursoModal(false)}
                 >
-                  Registar Curso
+                  CADASTRAR
                 </AsyncButton>
               </div>
             </form>
@@ -2083,8 +2642,8 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   type="button"
                   variant="primary"
                   icon="save"
-                  loadingText="A gravar disciplina..."
-                  successText="Disciplina Gravada com Sucesso!"
+                  loadingText="A cadastrar disciplina..."
+                  successText="Operação feita com sucesso!"
                   onAsyncClick={async () => {
                     if (!newSubName.trim() || !newSubCode.trim()) return;
                     const initials = (newSubCoordinator || 'Coordenação')
@@ -2112,7 +2671,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   }}
                   onSuccessComplete={() => setShowNovaDisciplinaModal(false)}
                 >
-                  Gravar Disciplina
+                  CADASTRAR
                 </AsyncButton>
               </div>
             </form>
@@ -2121,53 +2680,171 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: HORÁRIO DA TURMA */}
+      {/* MODAL: HORÁRIO DA TURMA COM SUPORTE OFICIAL A IMPRESSÃO */}
       {/* ========================================================================= */}
       {selectedScheduleClass && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white w-full max-w-3xl rounded-none shadow-2xl overflow-hidden border border-slate-400 max-h-[90vh] flex flex-col">
-            <FormModalHeader
-              title={`Grelha Horária Semanal — ${selectedScheduleClass.name}`}
-              subtitle={`Sala ${selectedScheduleClass.room} (${selectedScheduleClass.shift}) • DT: ${selectedScheduleClass.headTeacherName || 'Coordenação'}`}
-              icon="calendar_month"
-              onClose={() => setSelectedScheduleClass(null)}
-            />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in overflow-y-auto printable-modal-overlay">
+          <div className="printable-document bg-white w-full max-w-4xl rounded-none shadow-2xl overflow-hidden border border-slate-400 flex flex-col my-6 print:m-0 print:border-none print:shadow-none">
+            {/* Top Control Bar (Oculto na impressão) */}
+            <div className="px-6 py-3 bg-[#0b1f3a] text-white flex items-center justify-between no-print print:hidden">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-amber-400 text-[20px]">calendar_month</span>
+                <span className="font-bold text-sm">Grelha Horária Semanal Oficial — {selectedScheduleClass.name}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3.5 py-1.5 rounded-none bg-[#7a0c0c] hover:bg-[#5e0909] text-white font-bold text-xs flex items-center gap-1.5 transition-colors border border-[#7a0c0c] cursor-pointer shadow-xs"
+                >
+                  <span className="material-symbols-outlined text-[16px]">print</span>
+                  <span>Imprimir Horário Semanal</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedScheduleClass(null)}
+                  className="text-slate-400 hover:text-white p-1 rounded-none cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+            </div>
 
-            <div className="p-6 overflow-y-auto">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+            {/* Printable Schedule Content */}
+            <div className="p-8 text-slate-800 font-sans leading-relaxed text-xs">
+              {/* Official Letterhead */}
+              <div className="text-center border-b-2 border-[#0b1f3a] pb-5 mb-5">
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  <div className="w-12 h-12 rounded-none bg-white border border-slate-200 flex items-center justify-center p-1 shadow-xs overflow-hidden">
+                    <img
+                      src={db.settings?.logoUrl || '/school_emblem.png'}
+                      alt={db.settings?.schoolName || 'Emblema Institucional'}
+                      className="w-full h-full object-contain"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                </div>
+                <h2 className="text-[10px] uppercase tracking-widest font-bold text-slate-600">
+                  República de Angola • Ministério da Educação
+                </h2>
+                <h1 className="text-xl font-bold uppercase tracking-tight text-[#0b1f3a] mt-0.5">
+                  {db.settings?.schoolName || 'Complexo Escolar Privado BandMed'}
+                </h1>
+                <p className="text-[10px] text-slate-500 mt-0.5">
+                  {db.settings?.decreeAuthorization || 'Decreto Presidencial n.º 204/18'} • NIF: {db.settings?.nif || '5417283912'}
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  {db.settings?.address || 'Avenida 21 de Janeiro, Luanda'} • Contacto: {db.settings?.phone || '(+244) 923 456 789'}
+                </p>
+                <div className="inline-block mt-2.5 px-4 py-1 bg-slate-100 border border-slate-300 font-bold text-xs uppercase tracking-wider text-[#7a0c0c]">
+                  Horário Escolar Semanal de Aulas — Ano Lectivo {db.settings?.currentAcademicYear || '2024/2025'}
+                </div>
+              </div>
+
+              {/* Class Info Box */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 bg-slate-50 border border-slate-300 mb-5 text-xs">
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase font-bold block">Turma & Nível</span>
+                  <strong className="text-[#0b1f3a] text-sm block">{selectedScheduleClass.name}</strong>
+                  <span className="text-[10px] text-slate-600 font-semibold">{selectedScheduleClass.grade} • {selectedScheduleClass.cycle || 'Geral'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase font-bold block">Turno & Sala</span>
+                  <strong className="text-slate-800 block">{selectedScheduleClass.shift}</strong>
+                  <span className="text-[10px] text-slate-600 block">{selectedScheduleClass.room || 'Sala B-104'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase font-bold block">Diretor(a) de Turma</span>
+                  <strong className="text-slate-800 block truncate">{selectedScheduleClass.headTeacherName || 'A designar'}</strong>
+                  <span className="text-[10px] text-slate-600 block">Coordenação Pedagógica</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase font-bold block">Delegado(a) de Turma</span>
+                  <strong className="text-slate-800 block truncate">{selectedScheduleClass.delegateName || 'A eleger'}</strong>
+                  <span className="text-[10px] text-slate-600 block">Representante dos Alunos</span>
+                </div>
+              </div>
+
+              {/* Timetable Table */}
+              <div className="overflow-x-auto mb-6">
+                <table className="w-full text-left text-xs border-collapse border border-slate-300">
                   <thead>
                     <tr className="bg-[#0b1f3a] text-white uppercase text-[10px] font-bold">
-                      <th className="py-2.5 px-3 w-28">Horário</th>
-                      <th className="py-2.5 px-3">Segunda-feira</th>
-                      <th className="py-2.5 px-3">Terça-feira</th>
-                      <th className="py-2.5 px-3">Quarta-feira</th>
-                      <th className="py-2.5 px-3">Quinta-feira</th>
-                      <th className="py-2.5 px-3">Sexta-feira</th>
+                      <th className="py-2.5 px-3 w-28 border border-slate-300 text-center">Horário</th>
+                      <th className="py-2.5 px-3 border border-slate-300">Segunda-feira</th>
+                      <th className="py-2.5 px-3 border border-slate-300">Terça-feira</th>
+                      <th className="py-2.5 px-3 border border-slate-300">Quarta-feira</th>
+                      <th className="py-2.5 px-3 border border-slate-300">Quinta-feira</th>
+                      <th className="py-2.5 px-3 border border-slate-300">Sexta-feira</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-200 border-b border-slate-200">
+                  <tbody>
                     {getWeeklyTimetable(selectedScheduleClass).map((row, idx) => {
-                      const isBreak = row.seg === 'INTERVALO';
+                      const isBreak =
+                        Boolean(row.isBreak) ||
+                        (typeof row.seg === 'object' && row.seg?.subject === 'INTERVALO');
+
+                      const formatCell = (entry: any) => {
+                        if (isBreak) {
+                          return (
+                            <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10px] tracking-wider uppercase">
+                              INTERVALO
+                            </span>
+                          );
+                        }
+                        if (!entry) {
+                          return <span className="text-slate-300 text-[11px]">—</span>;
+                        }
+                        const subName = typeof entry === 'string' ? entry : entry.subject;
+                        const teacher = typeof entry === 'string' ? '' : entry.teacher;
+                        const room = typeof entry === 'string' ? '' : entry.room;
+                        if (subName === 'INTERVALO') {
+                          return (
+                            <span className="inline-block px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[10px] tracking-wider uppercase">
+                              INTERVALO
+                            </span>
+                          );
+                        }
+                        return (
+                          <div className="flex flex-col">
+                            <span className="font-bold text-[#0b1f3a] text-xs leading-snug">{subName}</span>
+                            {teacher && (
+                              <span className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
+                                {teacher} {room && room !== selectedScheduleClass.room ? `(${room})` : ''}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      };
+
                       return (
-                        <tr key={idx} className={isBreak ? 'bg-amber-50/70 font-bold text-amber-900' : 'hover:bg-slate-50'}>
-                          <td className="py-2.5 px-3 font-mono font-bold text-slate-700 bg-slate-50 border-r border-slate-200">
+                        <tr
+                          key={idx}
+                          className={
+                            isBreak
+                              ? 'bg-amber-50/80 font-bold text-amber-900'
+                              : idx % 2 === 0
+                              ? 'bg-white'
+                              : 'bg-slate-50/60'
+                          }
+                        >
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-700 bg-slate-100/70 border border-slate-300 text-center whitespace-nowrap">
                             {row.time}
                           </td>
-                          <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
-                            {row.seg}
+                          <td className={`py-2 px-3 border border-slate-300 ${isBreak ? 'text-center' : ''}`}>
+                            {formatCell(row.seg)}
                           </td>
-                          <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
-                            {row.ter}
+                          <td className={`py-2 px-3 border border-slate-300 ${isBreak ? 'text-center' : ''}`}>
+                            {formatCell(row.ter)}
                           </td>
-                          <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
-                            {row.qua}
+                          <td className={`py-2 px-3 border border-slate-300 ${isBreak ? 'text-center' : ''}`}>
+                            {formatCell(row.qua)}
                           </td>
-                          <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
-                            {row.qui}
+                          <td className={`py-2 px-3 border border-slate-300 ${isBreak ? 'text-center' : ''}`}>
+                            {formatCell(row.qui)}
                           </td>
-                          <td className={`py-2.5 px-3 ${isBreak ? 'text-center font-bold' : 'font-semibold text-[#0b1f3a]'}`}>
-                            {row.sex}
+                          <td className={`py-2 px-3 border border-slate-300 ${isBreak ? 'text-center' : ''}`}>
+                            {formatCell(row.sex)}
                           </td>
                         </tr>
                       );
@@ -2176,25 +2853,52 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                 </table>
               </div>
 
-              <div className="mt-6 flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-200">
-                <span>Matriz curricular aprovada pelo MED Angola</span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => window.print()}
-                    className="px-4 py-2 rounded-none bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold flex items-center gap-1.5 border border-slate-300 transition-colors cursor-pointer"
-                    type="button"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">print</span>
-                    <span>Imprimir Horário</span>
-                  </button>
-                  <button
-                    onClick={() => setSelectedScheduleClass(null)}
-                    className="px-4 py-2 rounded-none bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold transition-colors cursor-pointer"
-                    type="button"
-                  >
-                    Fechar
-                  </button>
+              {/* Official Signatures and Authentication for Print */}
+              <div className="grid grid-cols-3 gap-6 text-center font-sans text-xs pt-6 border-t border-slate-300 mt-6">
+                <div>
+                  <div className="h-10 border-b border-slate-400 mx-4" />
+                  <span className="font-bold text-slate-800 block mt-1">O Diretor de Turma</span>
+                  <span className="text-[10px] text-slate-500">{selectedScheduleClass.headTeacherName || 'Coordenação'}</span>
                 </div>
+                <div className="flex flex-col items-center">
+                  <div className="w-16 h-16 rounded-none border-2 border-dashed border-slate-300 flex items-center justify-center text-[10px] text-slate-400 font-mono">
+                    [Carimbo]
+                  </div>
+                  <span className="text-[10px] text-slate-500 mt-1">Secretaria Pedagógica</span>
+                </div>
+                <div>
+                  <div className="h-10 border-b border-slate-400 mx-4" />
+                  <span className="font-bold text-slate-800 block mt-1">O Diretor Pedagógico</span>
+                  <span className="text-[10px] text-slate-500">Dr. Carlos Mendes</span>
+                </div>
+              </div>
+
+              <div className="text-center text-[10px] text-slate-400 font-sans mt-6">
+                Documento emitido pelo Sistema BandMed Core v3.4.2 em {new Date().toLocaleDateString('pt-PT')} • Válido para o Ano Lectivo {db.settings?.currentAcademicYear || '2024/2025'}
+              </div>
+            </div>
+
+            {/* Modal Bottom Bar (Oculto na impressão) */}
+            <div className="px-6 py-3.5 bg-slate-100 border-t border-slate-300 flex items-center justify-between no-print print:hidden">
+              <span className="text-xs text-slate-500 font-medium">
+                Matriz curricular oficial sincronizada com a base de dados
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-4 py-2 rounded-none bg-[#7a0c0c] hover:bg-[#5e0909] text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                >
+                  <span className="material-symbols-outlined text-[16px]">print</span>
+                  <span>Imprimir Horário</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedScheduleClass(null)}
+                  className="px-4 py-2 rounded-none bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold text-xs transition-colors cursor-pointer"
+                >
+                  Fechar
+                </button>
               </div>
             </div>
           </div>
@@ -2343,7 +3047,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
             >
               <div>
                 <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Designação Oficial da Turma <span className="text-red-500">*</span>
+                  Designação da Turma <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -2449,16 +3153,24 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                 />
               </div>
 
+              {/* DELEGADO DE TURMA COM BUSCA DOS ALUNOS MATRICULADOS NA TURMA */}
               <div>
-                <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Delegado(a) de Turma
-                </label>
-                <input
-                  type="text"
+                <SearchableSelect
+                  label="Delegado(a) de Turma"
+                  options={editingClassStudentOptions.length > 0 ? editingClassStudentOptions : studentOptions}
                   value={editClassDelegate}
-                  onChange={(e) => setEditClassDelegate(e.target.value)}
-                  placeholder="Nome do aluno delegado ou 'A eleger'..."
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-none focus:border-[#0b1f3a] focus:ring-1 focus:ring-[#0b1f3a] focus:outline-none text-xs text-slate-800"
+                  onChange={(val) => {
+                    const found = studentsList.find((s) => s.id === val || s.name === val);
+                    setEditClassDelegate(found ? found.name : val);
+                  }}
+                  placeholder="Pesquisar aluno matriculado nesta turma..."
+                  allowCustom={true}
+                  emptyMessage="Nenhum aluno matriculado encontrado (pode digitar manualmente)"
+                  helperText={
+                    editingClassStudentOptions.length > 0
+                      ? `Mostrando ${editingClassStudentOptions.length} aluno(s) matriculado(s) na turma ${editingClass.name}.`
+                      : `Ainda não existem alunos registados em ${editingClass.name}. Pode pesquisar na base geral ou digitar o nome.`
+                  }
                 />
               </div>
 
@@ -2474,8 +3186,8 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   type="button"
                   variant="primary"
                   icon="save"
-                  loadingText="A guardar alterações..."
-                  successText="Turma Actualizada com Sucesso!"
+                  loadingText="A atualizar turma..."
+                  successText="Operação feita com sucesso!"
                   onAsyncClick={async () => {
                     const teacherObj = teachersList.find((t) => t.id === editClassHeadTeacherId);
                     dbService.updateClass(editingClass.id, {
@@ -2493,7 +3205,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   }}
                   onSuccessComplete={() => setEditingClass(null)}
                 >
-                  Guardar Alterações
+                  SALVAR ALTERAÇÕES
                 </AsyncButton>
               </div>
             </form>
@@ -2576,19 +3288,26 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                       >
                         Cancelar
                       </button>
-                      <AsyncButton
+                      <button
                         type="button"
-                        variant="danger"
-                        icon="delete"
-                        loadingText="A eliminar turma..."
-                        successText="Turma Eliminada com Sucesso!"
-                        onAsyncClick={async () => {
-                          dbService.deleteClass(classToDelete.id);
+                        onClick={async () => {
+                          const cls = classToDelete;
+                          setClassToDelete(null);
+                          await runGlobalOperation(
+                            async () => {
+                              dbService.deleteClass(cls.id);
+                            },
+                            {
+                              loadingMessage: `A eliminar turma ${cls.name}...`,
+                              successMessage: 'Operação feita com sucesso!'
+                            }
+                          );
                         }}
-                        onSuccessComplete={() => setClassToDelete(null)}
+                        className="px-5 py-2.5 rounded-none bg-[#b91c1c] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-none border-none"
                       >
-                        Sim, Eliminar Turma
-                      </AsyncButton>
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                        <span>Sim, Eliminar Turma</span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -2721,8 +3440,8 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   type="button"
                   variant="primary"
                   icon="save"
-                  loadingText="A salvar alterações..."
-                  successText="Curso Actualizado com Sucesso!"
+                  loadingText="A atualizar curso..."
+                  successText="Operação feita com sucesso!"
                   onAsyncClick={async () => {
                     dbService.updateCourse(editingCourse.id, {
                       name: editCourseName.trim(),
@@ -2737,7 +3456,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   }}
                   onSuccessComplete={() => setEditingCourse(null)}
                 >
-                  Salvar Alterações
+                  SALVAR ALTERAÇÕES
                 </AsyncButton>
               </div>
             </form>
@@ -2776,19 +3495,26 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                 >
                   Cancelar
                 </button>
-                <AsyncButton
+                <button
                   type="button"
-                  variant="danger"
-                  icon="delete"
-                  loadingText="A eliminar curso..."
-                  successText="Curso Eliminado com Sucesso!"
-                  onAsyncClick={async () => {
-                    dbService.deleteCourse(courseToDelete.id);
+                  onClick={async () => {
+                    const crs = courseToDelete;
+                    setCourseToDelete(null);
+                    await runGlobalOperation(
+                      async () => {
+                        dbService.deleteCourse(crs.id);
+                      },
+                      {
+                        loadingMessage: `A eliminar curso ${crs.name}...`,
+                        successMessage: 'Operação feita com sucesso!'
+                      }
+                    );
                   }}
-                  onSuccessComplete={() => setCourseToDelete(null)}
+                  className="px-5 py-2.5 rounded-none bg-[#b91c1c] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-none border-none"
                 >
-                  Sim, Eliminar Curso
-                </AsyncButton>
+                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                  <span>Sim, Eliminar Curso</span>
+                </button>
               </div>
             </div>
           </div>
@@ -2917,8 +3643,8 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   type="button"
                   variant="primary"
                   icon="save"
-                  loadingText="A salvar alterações..."
-                  successText="Disciplina Actualizada com Sucesso!"
+                  loadingText="A atualizar disciplina..."
+                  successText="Operação feita com sucesso!"
                   onAsyncClick={async () => {
                     dbService.updateSubject(editingSubject.id, {
                       name: editSubName.trim(),
@@ -2933,7 +3659,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   }}
                   onSuccessComplete={() => setEditingSubject(null)}
                 >
-                  Salvar Alterações
+                  SALVAR ALTERAÇÕES
                 </AsyncButton>
               </div>
             </form>
@@ -2972,19 +3698,26 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                 >
                   Cancelar
                 </button>
-                <AsyncButton
+                <button
                   type="button"
-                  variant="danger"
-                  icon="delete"
-                  loadingText="A eliminar disciplina..."
-                  successText="Disciplina Eliminada com Sucesso!"
-                  onAsyncClick={async () => {
-                    dbService.deleteSubject(subjectToDelete.id);
+                  onClick={async () => {
+                    const sbj = subjectToDelete;
+                    setSubjectToDelete(null);
+                    await runGlobalOperation(
+                      async () => {
+                        dbService.deleteSubject(sbj.id);
+                      },
+                      {
+                        loadingMessage: `A eliminar disciplina ${sbj.name}...`,
+                        successMessage: 'Operação feita com sucesso!'
+                      }
+                    );
                   }}
-                  onSuccessComplete={() => setSubjectToDelete(null)}
+                  className="px-5 py-2.5 rounded-none bg-[#b91c1c] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-none border-none"
                 >
-                  Sim, Eliminar Disciplina
-                </AsyncButton>
+                  <span className="material-symbols-outlined text-[16px]">delete</span>
+                  <span>Sim, Eliminar Disciplina</span>
+                </button>
               </div>
             </div>
           </div>

@@ -156,3 +156,132 @@ img {
   border-radius: 0px !important;
 }
 
+/* ========================================================================= */
+/* SUPORTE PROFISSIONAL A IMPRESSÃO (@media print)                           */
+/* Permite imprimir Fichas Oficiais em Folha A4, Cartão e Passes             */
+/* Compatível com Mobile (Android/iOS) e Desktop                             */
+/* Alinhado ao topo absoluto da 1.ª página sem margens desnecessárias        */
+/* ========================================================================= */
+@media print {
+  @page {
+    margin: 5mm 6mm;
+    size: A4 landscape;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 9.5pt !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Reset de layout dos containers principais para que não empurrem a impressão */
+  #root,
+  main,
+  .min-h-screen,
+  .max-w-7xl {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    display: block !important;
+    position: static !important;
+    transform: none !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  /* Desbloquear container modal e documento imprimível */
+  .printable-modal-overlay,
+  .printable-modal-overlay *,
+  .printable-document,
+  .printable-document *,
+  .printable-page,
+  .printable-page * {
+    visibility: visible !important;
+  }
+
+  /* Fixar a área de impressão no topo exato da primeira página */
+  .printable-modal-overlay {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    inset: 0 auto auto 0 !important;
+    z-index: 999999 !important;
+    display: block !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+  }
+
+  .printable-document {
+    position: relative !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+    display: block !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .printable-document .overflow-y-auto {
+    overflow: visible !important;
+    max-height: none !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .no-print,
+  .no-print *,
+  .print\:hidden,
+  [class*="print:hidden"],
+  nav,
+  aside,
+  header {
+    display: none !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    visibility: hidden !important;
+  }
+
+  .print-break-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Formatação de fieldset e legendas na impressão */
+  fieldset {
+    border: 1px solid #64748b !important;
+  }
+}
+

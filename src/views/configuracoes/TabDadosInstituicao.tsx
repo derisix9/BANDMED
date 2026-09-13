@@ -1,15 +1,17 @@
 import React from 'react';
-import { EducationLevelId, InstitutionSettings } from '../../types';
+import { EducationLevelId, InstitutionSettings, UserRole } from '../../types';
 import { ALL_EDUCATION_SUBSYSTEMS, DEFAULT_SELECTED_SUBSYSTEMS } from '../../utils/educationSubsystems';
 
 interface TabDadosInstituicaoProps {
   settings: InstitutionSettings;
+  currentUserRole?: UserRole;
   onUpdateSettings: (newSettings: Partial<InstitutionSettings>) => void;
-  onSaveAll: () => void;
+  onSaveAll: (options?: { loadingMessage?: string; successMessage?: string; requiredRule?: string }) => void;
 }
 
 export const TabDadosInstituicao: React.FC<TabDadosInstituicaoProps> = ({
   settings,
+  currentUserRole,
   onUpdateSettings,
   onSaveAll
 }) => {
@@ -95,12 +97,26 @@ export const TabDadosInstituicao: React.FC<TabDadosInstituicaoProps> = ({
 
           <div className="flex flex-col gap-1">
             <label className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+              Subtítulo / Ciclos Oficiais
+            </label>
+            <input
+              type="text"
+              value={settings.subTitle || ''}
+              onChange={(e) => onUpdateSettings({ subTitle: e.target.value })}
+              placeholder="Ex.: Ensino Primário, Iº e IIº Ciclos do Ensino Secundário"
+              className="w-full px-3.5 py-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 outline-none focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] text-xs font-semibold"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
               NIF Angolano (AGT)
             </label>
             <input
               type="text"
-              value={settings.nif}
+              value={settings.nif || ''}
               onChange={(e) => onUpdateSettings({ nif: e.target.value })}
+              placeholder="NIF da Instituição"
               className="w-full px-3.5 py-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 font-mono outline-none focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] text-xs font-bold"
             />
           </div>
@@ -179,6 +195,71 @@ export const TabDadosInstituicao: React.FC<TabDadosInstituicaoProps> = ({
               type="text"
               value={settings.logoUrl}
               onChange={(e) => onUpdateSettings({ logoUrl: e.target.value })}
+              className="w-full px-3.5 py-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 outline-none focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] text-xs"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+              Diretor Geral / Presidente
+            </label>
+            <input
+              type="text"
+              value={settings.directorGeral || ''}
+              onChange={(e) => onUpdateSettings({ directorGeral: e.target.value })}
+              placeholder="Nome do Diretor Geral / Presidente"
+              className="w-full px-3.5 py-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 outline-none focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] text-xs font-semibold"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+              Diretor Pedagógico
+            </label>
+            <input
+              type="text"
+              value={settings.directorPedagogico || ''}
+              onChange={(e) => onUpdateSettings({ directorPedagogico: e.target.value })}
+              placeholder="Nome do Diretor Pedagógico"
+              className="w-full px-3.5 py-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 outline-none focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] text-xs font-semibold"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+              Chefe de Secretaria Geral
+            </label>
+            <input
+              type="text"
+              value={settings.chefeSecretaria || ''}
+              onChange={(e) => onUpdateSettings({ chefeSecretaria: e.target.value })}
+              placeholder="Nome do Chefe de Secretaria Geral"
+              className="w-full px-3.5 py-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 outline-none focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] text-xs font-semibold"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+              Portal Web / Domínio Institucional
+            </label>
+            <input
+              type="text"
+              value={settings.website || ''}
+              onChange={(e) => onUpdateSettings({ website: e.target.value })}
+              placeholder="Ex.: https://escola.ao"
+              className="w-full px-3.5 py-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 outline-none focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] text-xs"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="font-bold text-slate-700 uppercase tracking-wider text-[11px]">
+              Bairro / Distrito Urbano
+            </label>
+            <input
+              type="text"
+              value={settings.bairro || ''}
+              onChange={(e) => onUpdateSettings({ bairro: e.target.value })}
+              placeholder="Ex.: Bairro ou Distrito Urbano"
               className="w-full px-3.5 py-2.5 bg-slate-50 text-slate-900 rounded-xl border border-slate-200 outline-none focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] text-xs"
             />
           </div>
@@ -376,11 +457,16 @@ export const TabDadosInstituicao: React.FC<TabDadosInstituicaoProps> = ({
         <div className="flex items-center gap-2 justify-end">
           <button
             type="button"
-            onClick={onSaveAll}
+            onClick={() =>
+              onSaveAll({
+                loadingMessage: 'A guardar dados oficiais da instituição e sub-sistemas...',
+                successMessage: 'Operação feita com sucesso!'
+              })
+            }
             className="px-6 py-2.5 rounded-xl bg-[#0b1f3a] text-white font-bold text-xs hover:bg-[#7a0c0c] transition-colors shadow-md flex items-center gap-2 cursor-pointer"
           >
             <span className="material-symbols-outlined text-[18px]">save</span>
-            <span>Guardar Configurações e Sub-sistemas</span>
+            <span>Guardar</span>
           </button>
         </div>
       </div>

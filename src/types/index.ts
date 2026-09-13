@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'professor' | 'aluno' | 'encarregado';
+export type UserRole = 'admin' | 'director' | 'secretaria' | 'professor' | 'financeiro' | 'aluno' | 'encarregado';
 
 export interface User {
   id: string;
@@ -10,6 +10,16 @@ export interface User {
   phone?: string;
   processNumber?: string;
   password?: string;
+  institutionId?: string;
+  username?: string;
+}
+
+export interface InstitutionSummary {
+  id: string;
+  name: string;
+  adminEmail: string;
+  adminName: string;
+  createdAt: string;
 }
 
 export interface AttachedDocument {
@@ -40,6 +50,13 @@ export interface Student {
   gender?: 'Masculino' | 'Feminino' | 'M' | 'F' | string;
   nationality?: string;
   birthPlace?: string;
+  placeOfBirth?: string;
+  bloodType?: string;
+  courseName?: string;
+  shift?: string;
+  classroomRoom?: string;
+  previousGradeCompleted?: string;
+  averageDisciplineGrade?: number;
   address: string;
   studentPhone?: string;
   guardianName: string;
@@ -72,6 +89,28 @@ export interface Student {
     score: number;
     maxScore: number;
   }[];
+  trimesterGrades?: StudentTrimesterRecord[];
+}
+
+export interface StudentTrimesterRecord {
+  subjectId: string;
+  subjectName: string;
+  mac1: number;
+  npp1: number;
+  npt1: number;
+  mt1: number;
+  mac2: number;
+  npp2: number;
+  npt2: number;
+  mt2: number;
+  mac3: number;
+  npp3: number;
+  npt3: number;
+  mt3: number;
+  mfd: number;
+  pg?: number;
+  ca: number;
+  situation: 'Aprovado' | 'Exame de Recurso' | 'Não Aprovado' | 'Desistente';
 }
 
 export interface TeacherAllocation {
@@ -100,6 +139,31 @@ export interface Teacher {
   status: 'ativo' | 'licenca' | 'contrato_vencer';
   rating: number;
   evaluationsCount: number;
+  gender?: string;
+  birthDate?: string;
+  maritalStatus?: string;
+  nationality?: string;
+  birthPlace?: string;
+  address?: string;
+  university?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  category?: string;
+  inssNumber?: string;
+  baseSalaryKz?: number;
+  allowancesKz?: number;
+  allowanceDescription?: string;
+  retentionTaxKz?: number;
+  bankName?: string;
+  iban?: string;
+  attendanceRatePercent?: number;
+  timelyGradesPercent?: number;
+  studentsTutoredCount?: number;
+  averageApprovalRatePercent?: number;
+  averageDisciplineGrade?: number;
+  seniorityYears?: number;
+  admissionYear?: number;
+  roleBadge?: string;
 }
 
 export interface ClassRoom {
@@ -109,7 +173,7 @@ export interface ClassRoom {
   section: string;
   cycle: string;
   area?: string;
-  shift: 'Manhã' | 'Tarde' | 'Integral';
+  shift: 'Manhã' | 'Tarde' | 'Integral' | 'Pós-Laboral' | 'Noite';
   room: string;
   studentCount: number;
   maxCapacity: number;
@@ -223,6 +287,20 @@ export interface ExamPauta {
   grades: GradeItem[];
 }
 
+export interface InvoiceItem {
+  code: string;
+  description: string;
+  subDescription?: string;
+  periodOrRef?: string;
+  quantity: number;
+  unitPriceKz: number;
+  discountKz?: number;
+  taxRegime?: string;
+  ivaRate?: string;
+  totalKz?: number;
+  liquidTotalKz?: number;
+}
+
 export interface TuitionInvoice {
   id: string;
   invoiceNumber: string;
@@ -248,6 +326,21 @@ export interface TuitionInvoice {
   multicaixaEntity?: string;
   multicaixaRef?: string;
   receiptGeneratedAt?: string;
+  items?: InvoiceItem[];
+  guardianPhone?: string;
+  guardianAddress?: string;
+  studentBiNumber?: string;
+  operatorName?: string;
+  operatorCode?: string;
+  saftHash?: string;
+  transactionNumber?: string;
+  bankName?: string;
+  discountName?: string;
+  discountAmountKz?: number;
+  subtotalKz?: number;
+  stampDutyKz?: number;
+  totalPaidKz?: number;
+  selectedMonths?: string[];
 }
 
 export interface Notice {
@@ -261,6 +354,20 @@ export interface Notice {
   priority: 'urgente' | 'alta' | 'normal' | 'informativa';
   date: string;
   readsCount: number;
+}
+
+export interface SchoolNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'notice' | 'finance' | 'attendance' | 'academic' | 'system';
+  priority?: 'urgente' | 'alta' | 'normal' | 'info';
+  timestamp: string;
+  read: boolean;
+  targetRoles?: UserRole[];
+  linkView?: string;
+  linkId?: string;
+  createdAt: number;
 }
 
 export interface LibraryBook {
@@ -317,8 +424,18 @@ export interface EducationSubsystem {
   icon: string;
 }
 
+export interface TrimesterSchedule {
+  startDate: string;
+  endDate: string;
+  examPeriod: string;
+  gradesCouncilDate: string;
+  weeksCount: string;
+}
+
 export interface InstitutionSettings {
+  institutionId?: string;
   schoolName: string;
+  subTitle?: string;
   nif: string;
   decreeAuthorization: string;
   province: string;
@@ -328,9 +445,32 @@ export interface InstitutionSettings {
   phone: string;
   logoUrl: string;
   currentAcademicYear: string;
+  availableAcademicYears?: string[];
   currencyCode: 'Kz' | 'AOA';
   currentTrimester: '1' | '2' | '3';
   selectedSubsystems?: EducationLevelId[];
+  directorGeral?: string;
+  directorPedagogico?: string;
+  chefeSecretaria?: string;
+  website?: string;
+  bairro?: string;
+  academicPeriod?: string;
+  academicWeeks?: string;
+  trimesterSchedules?: {
+    t1: TrimesterSchedule;
+    t2: TrimesterSchedule;
+    t3: TrimesterSchedule;
+  };
+  academicPauses?: Array<{ id: number | string; desc: string; periodo: string; dias: string }>;
+  academicLockingRules?: { bloqueioSumarios: boolean; toleranciaNotas: boolean; chaveFecho: boolean };
+  subsystemTuitions?: any;
+  tuitionRows?: any[];
+  emolumentos?: any[];
+  financialRules?: { paymentDueDay: number; lateFeePercent: number; discountPercent: number; siblingDiscountPercent?: number; [key: string]: any };
+  gradeRules?: { macWeight: number; ppWeight: number; ptWeight: number; minPassingGrade?: number; passingGrade?: number; recursoMinGrade?: number; examWaiverGrade?: number; strictDecimals?: boolean; strictDecimal?: boolean; roundRuleHalfUp?: boolean; roundHalfUp?: boolean; [key: string]: any };
+  rolePermissions?: Record<string, any>;
+  securityPolicies?: { twoFactorActive?: boolean; sessionTimeout?: string; maxFailedAttempts?: string; passwordExpirationDays?: string; [key: string]: any };
+  backupHistory?: Array<{ id: string | number; arquivo: string; tamanho: string; data: string; status: string }>;
 }
 
 export type SchoolClass = ClassRoom;
@@ -338,6 +478,43 @@ export type SystemSettings = InstitutionSettings;
 export type AttendanceRecord = AttendanceStudentItem;
 export type GradeRecord = GradeItem;
 export type TuitionFee = TuitionInvoice;
+
+export interface SchoolServiceItem {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  category: 'propinas' | 'matricula' | 'declaracao' | 'uniforme' | 'cartao' | 'geral';
+  defaultPriceKz: number;
+  taxRegime?: string;
+  active: boolean;
+  createdAt?: string;
+}
+
+export interface SchoolAuditLog {
+  id: string;
+  userName: string;
+  userRole?: string;
+  avatar?: string;
+  action: string;
+  details: string;
+  module: 'pautas' | 'propinas' | 'assiduidade' | 'alunos' | 'sistema' | 'turmas' | string;
+  timestamp: string;
+  createdAt: number;
+  badgeColor?: string;
+}
+
+export interface SchoolCalendarEvent {
+  id: string;
+  title: string;
+  description: string;
+  monthShort: string;
+  dayNumber: string | number;
+  date: string;
+  time?: string;
+  category: 'feriado' | 'exame' | 'reuniao' | 'evento' | string;
+  color: string;
+}
 
 export interface SchoolDatabase {
   users: User[];
@@ -348,12 +525,19 @@ export interface SchoolDatabase {
   subjects: Subject[];
   courses?: Course[];
   attendance: AttendanceSheet;
+  attendanceSheets?: AttendanceSheet[];
   pauta: ExamPauta;
   invoices: TuitionInvoice[];
+  services?: SchoolServiceItem[];
   notices: Notice[];
+  notifications?: SchoolNotification[];
   books: LibraryBook[];
   loans: BookLoan[];
   timetable: TimetableEntry[];
   settings: InstitutionSettings;
   tuitionFees?: TuitionInvoice[];
+  auditLogs?: SchoolAuditLog[];
+  events?: SchoolCalendarEvent[];
+  miniPautasStore?: Record<string, Record<string, any[]>>;
+  lastCloudSync?: string;
 }

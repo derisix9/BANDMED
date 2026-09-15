@@ -31,21 +31,31 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-start justify-center p-3 sm:p-4 printable-modal-overlay overflow-y-auto print:p-0 print:m-0 print:block">
-      <div className="printable-document bg-white rounded-none max-w-4xl w-full shadow-2xl border border-slate-400 overflow-hidden flex flex-col my-4 print:my-0 print:border-none print:shadow-none print:w-full">
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait !important;
+            margin: 8mm 8mm !important;
+          }
+        }
+      `}</style>
+      <div className="printable-document printable-portrait bg-white rounded-none max-w-4xl w-full shadow-2xl border border-slate-400 overflow-hidden flex flex-col my-4 print:my-0 print:border-none print:shadow-none print:w-full">
         {/* Modal Top Controls (Oculto na impressão) */}
         <div className="px-6 py-3 bg-[#0b1f3a] text-white flex items-center justify-between gap-3 border-b border-slate-700 no-print">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[20px] text-amber-400">badge</span>
             <h3 className="font-bold text-sm sm:text-base tracking-wide uppercase">
-              Ficha de Perfil do Professor • Dossier Oficial
+              Ficha de Perfil do Professor
             </h3>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center">
             <button
               type="button"
               onClick={onClose}
               className="text-slate-300 hover:text-white p-1 cursor-pointer transition-colors"
+              title="Fechar Janela"
+              aria-label="Fechar Janela"
             >
               <span className="material-symbols-outlined text-[22px]">close</span>
             </button>
@@ -81,14 +91,14 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
               {/* Badges de Autenticação à Direita */}
               <div className="text-right flex flex-col items-end gap-0.5">
                 <span className="px-2.5 py-0.5 bg-slate-100 border border-slate-300 font-mono text-[11px] font-bold text-slate-800">
-                  RH-DOC/{new Date().getFullYear()}/{String(teacher.agentNumber || '042').replace(/\D/g, '').slice(-3).padStart(3, '0')}
+                  DOC-RH/{new Date().getFullYear()}/{String(teacher.agentNumber || '042').replace(/\D/g, '').slice(-3).padStart(3, '0')}
                 </span>
                 <span className="text-[10px] text-slate-500 font-medium">
                   Data de Emissão: {new Date().toLocaleDateString('pt-PT')}
                 </span>
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                  <span>Documento Autenticado & Em Vigor</span>
+                  <span>Documento Autenticado</span>
                 </span>
               </div>
             </div>
@@ -100,11 +110,10 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
                   <span className="material-symbols-outlined text-[16px]">assignment</span>
                 </span>
                 <span className="font-extrabold text-xs uppercase text-[#0b1f3a] tracking-wide">
-                  DOSSIER INDIVIDUAL DO DOCENTE & FICHA CADASTRAL DE CARREIRA
+                FICHA DE CADASTRO DE CARREIRA
                 </span>
               </div>
               <span className="px-2.5 py-0.5 bg-slate-100 border border-slate-300 text-[10px] font-semibold text-slate-600">
-                Estatuto Docente Decreto Presidencial n.º 191/18
               </span>
             </div>
           </div>
@@ -422,7 +431,6 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
               {/* Assinatura do Docente */}
               <div>
                 <div className="font-serif italic text-base text-slate-700 h-8 flex items-end justify-center mb-1">
-                  {teacher.name}
                 </div>
                 <div className="border-b border-dashed border-slate-400 mx-4 mb-1" />
                 <span className="font-bold text-slate-900 uppercase block text-[11px]">
@@ -436,7 +444,6 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
               {/* Visto da Direcção Pedagógica */}
               <div>
                 <div className="font-serif italic text-base text-[#0b1f3a] h-8 flex items-end justify-center mb-1">
-                  Direcção Pedagógica
                 </div>
                 <div className="border-b border-dashed border-slate-400 mx-4 mb-1" />
                 <span className="font-bold text-[#0b1f3a] uppercase block text-[11px]">
@@ -444,20 +451,6 @@ export const TeacherProfileModal: React.FC<TeacherProfileModalProps> = ({
                 </span>
                 <span className="text-[10px] text-slate-500 block">
                   ({institution.schoolName})
-                </span>
-              </div>
-
-              {/* Selo RH e Autenticação Digital */}
-              <div className="border border-slate-300 p-2.5 bg-slate-50 text-center">
-                <div className="w-12 h-12 rounded-full border-2 border-amber-600/70 text-amber-800 flex flex-col items-center justify-center p-0.5 text-center font-bold text-[7px] leading-tight rotate-[-4deg] uppercase mx-auto mb-1">
-                  <span>SELO RH</span>
-                  <span className="text-[6px]">CEPB</span>
-                </div>
-                <span className="block font-mono text-[9px] font-bold text-slate-700">
-                  HASH: BM-{String(teacher.agentNumber || '7749').replace(/\D/g, '').slice(-4)}-DOC
-                </span>
-                <span className="block text-[8px] text-slate-500">
-                  Autenticado digitalmente via BandMed Core
                 </span>
               </div>
             </div>

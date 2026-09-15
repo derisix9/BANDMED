@@ -275,7 +275,7 @@ export const ProfessoresView: React.FC<ProfessoresViewProps> = ({ db, currentUse
             <div className="px-6 py-4 bg-[#0b1f3a] text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[20px] text-red-400">warning</span>
-                <h3 className="font-bold text-base">Eliminar Docente</h3>
+                <h3 className="font-bold text-base">Eliminação</h3>
               </div>
               <button
                 onClick={() => setDeletingTeacher(null)}
@@ -323,7 +323,7 @@ export const ProfessoresView: React.FC<ProfessoresViewProps> = ({ db, currentUse
                 className="px-5 py-2.5 rounded-none bg-[#b91c1c] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-none border-none"
               >
                 <span className="material-symbols-outlined text-[16px]">delete</span>
-                <span>Confirmar Eliminação</span>
+                <span>Eliminar</span>
               </button>
             </div>
           </div>

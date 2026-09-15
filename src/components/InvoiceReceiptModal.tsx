@@ -84,7 +84,15 @@ export const InvoiceReceiptModal: React.FC<InvoiceReceiptModalProps> = ({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="printable-document relative bg-white rounded-none max-w-4xl w-full shadow-2xl border border-slate-400 overflow-hidden flex flex-col my-4 sm:my-auto print:border-none print:shadow-none print:max-h-none print:w-full print:m-0 print:top-0">
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait !important;
+            margin: 8mm 8mm !important;
+          }
+        }
+      `}</style>
+      <div className="printable-document printable-portrait relative bg-white rounded-none max-w-4xl w-full shadow-2xl border border-slate-400 overflow-hidden flex flex-col my-4 sm:my-auto print:border-none print:shadow-none print:max-h-none print:w-full print:m-0 print:top-0">
         {/* Modal Top Bar (Hidden in Print) */}
         <div className="no-print print:hidden shrink-0 px-6 py-3.5 bg-[#0b1f3a] text-white flex items-center justify-between border-b border-slate-700 sticky top-0 z-20">
           <div className="flex items-center gap-2">
@@ -93,31 +101,43 @@ export const InvoiceReceiptModal: React.FC<InvoiceReceiptModalProps> = ({
               Fatura / Recibo de Pagamento
             </h3>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex items-center gap-1 text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1 text-xs font-bold transition-colors cursor-pointer"
-            title="Fechar Documento"
-          >
-            <span className="material-symbols-outlined text-[16px]">close</span>
-            <span></span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex items-center gap-1 text-slate-300 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer"
+              title="Fechar Documento"
+            >
+              <span className="material-symbols-outlined text-[16px]">close</span>
+            </button>
+          </div>
         </div>
 
         {/* Printable Document Body - Imagens 1 e 2 */}
         <div className="p-6 sm:p-8 bg-white overflow-y-auto flex-1 space-y-5 text-slate-800 text-xs">
           {/* Header Institucional & Badge da Fatura */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b-2 border-[#0b1f3a]">
-            <div>
-              <h1 className="text-base sm:text-lg font-black uppercase text-[#0b1f3a] tracking-tight">
-                {schoolName}
-              </h1>
-              <p className="text-[11px] text-slate-600 font-semibold mt-0.5">
-                {schoolSub}
-              </p>
-              <div className="text-[11px] text-slate-500 font-mono mt-1 space-y-0.5">
-                <p>NIF: <strong>{schoolNif}</strong> • Telefone: {schoolPhone}</p>
-                <p>Email: {schoolEmail} • {schoolAddress}</p>
+            <div className="flex items-start gap-3">
+              {settings.logoUrl && (
+                <div className="w-14 h-14 bg-white border border-slate-300 p-1 flex items-center justify-center shrink-0 shadow-xs">
+                  <img
+                    src={settings.logoUrl}
+                    alt={schoolName}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              )}
+              <div>
+                <h1 className="text-base sm:text-lg font-black uppercase text-[#0b1f3a] tracking-tight">
+                  {schoolName}
+                </h1>
+                <p className="text-[11px] text-slate-600 font-semibold mt-0.5">
+                  {schoolSub}
+                </p>
+                <div className="text-[11px] text-slate-500 font-mono mt-1 space-y-0.5">
+                  <p>NIF: <strong>{schoolNif}</strong> • Telefone: {schoolPhone}</p>
+                  <p>Email: {schoolEmail} • {schoolAddress}</p>
+                </div>
               </div>
             </div>
 
@@ -289,21 +309,18 @@ export const InvoiceReceiptModal: React.FC<InvoiceReceiptModalProps> = ({
           <div className="pt-6 border-t-2 border-slate-800 grid grid-cols-2 gap-8 text-center text-xs print-break-avoid">
             <div>
               <div className="h-10 border-b border-slate-400 mx-6 mb-1" />
-              <span className="font-bold uppercase text-slate-900 block">O(A) Responsável pela Cobrança</span>
-              <span className="text-[10px] text-slate-500 font-mono">Assinatura Reconhecida</span>
+              <span className="font-bold uppercase text-slate-900 block">O(A) Responsável</span>
             </div>
 
             <div>
               <div className="border border-dashed border-slate-400 p-2 mx-6 text-center bg-slate-50/50">
-                <span className="text-[10px] uppercase font-bold text-slate-500 block">Carimbo Oficial da Tesouraria</span>
                 <span className="font-bold text-[#0b1f3a] text-xs uppercase block mt-0.5">{schoolName}</span>
-                <span className="text-[9px] text-emerald-700 font-bold block">★ VISTO / PAGO ★</span>
               </div>
             </div>
           </div>
 
           <div className="pt-2 text-center text-[10px] text-slate-400">
-            Este documento é emitido nos termos da legislação fiscal em vigor na República de Angola.
+            Este documento é emitido nos termos da legislação fiscal em vigor.
           </div>
         </div>
 

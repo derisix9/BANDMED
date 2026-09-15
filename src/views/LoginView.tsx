@@ -72,34 +72,37 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [registerError, setRegisterError] = useState<string | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    setLoading(true);
-    setLoginStatus('loading');
 
-    setTimeout(() => {
-      const result = dbService.authenticate(identifier, password);
-      setLoading(false);
-
-      if (result.success && result.user) {
-        setLoginStatus('success');
-        if (rememberMe) {
-          try {
-            localStorage.setItem('bandmed_session_user', JSON.stringify(result.user));
-          } catch (err) {
-            console.warn('Erro ao salvar sessão:', err);
+    try {
+      const user = await runGlobalOperation(
+        async () => {
+          const result = await dbService.authenticate(identifier, password);
+          if (!result.success || !result.user) {
+            throw new Error(result.error || 'Credenciais inválidas. Verifique o seu e-mail institucional ou n.º de processo e a palavra-passe.');
           }
+          return result.user;
+        },
+        {
+          loadingMessage: 'A validar credenciais e a autenticar no sistema...',
+          successMessage: 'Autenticação realizada com sucesso!',
+          errorMessage: 'Credenciais Inválidas'
         }
-        setTimeout(() => {
-          setLoginStatus('idle');
-          onLoginSuccess(result.user);
-        }, 1200);
-      } else {
-        setLoginStatus('idle');
-        setErrorMessage(result.error || 'Credenciais inválidas. Verifique o seu e-mail institucional ou n.º de processo e a palavra-passe.');
+      );
+
+      if (rememberMe) {
+        try {
+          localStorage.setItem('bandmed_session_user', JSON.stringify(user));
+        } catch (err) {
+          console.warn('Erro ao salvar sessão:', err);
+        }
       }
-    }, 600);
+      onLoginSuccess(user);
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Erro ao processar autenticação. Tente novamente.');
+    }
   };
 
   const resetRegistrationFlow = () => {
@@ -259,7 +262,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               </div>
               <div className="flex flex-col text-xs">
                 <span className="font-bold text-white">Sincronização em Tempo Real</span>
-                <span className="text-slate-300">Atualização contínua e instantânea entre secretaria, coordenação e salas de aula.</span>
+                <span className="text-slate-300">Atualização contínua e instantânea entre secretaria, tesouraria, área pedagógica, coordenação e área ácademica.</span>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -267,7 +270,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 <span className="material-symbols-outlined text-[20px]">shield</span>
               </div>
               <div className="flex flex-col text-xs">
-                <span className="font-bold text-white">Autenticação Cifrada & Conformidade MED</span>
+                <span className="font-bold text-white">Autenticação Cifrada</span>
                 <span className="text-slate-300">Acesso seguro com encriptação e trilha de auditoria para cada perfil.</span>
               </div>
             </div>
@@ -276,8 +279,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 <span className="material-symbols-outlined text-[20px]">apartment</span>
               </div>
               <div className="flex flex-col text-xs">
-                <span className="font-bold text-white">Multi-Instituição & Isolamento de Dados</span>
-                <span className="text-slate-300">Cada instituição possui a sua própria base de dados isolada e segura na plataforma.</span>
+                <span className="font-bold text-white">Instituição & Isolamento de Dados</span>
+                <span className="text-slate-300">Cada instituição possui a sua própria base de dados</span>
               </div>
             </div>
           </div>
@@ -289,9 +292,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             <div>
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="font-headline text-2xl font-bold text-slate-900">Iniciar Sessão</h2>
+                  <h2 className="font-headline text-2xl font-bold text-slate-900">INICIAR SESSÃO</h2>
                   <p className="text-xs text-slate-500 mt-1">
-                    Introduza os seus dados de acesso institucionais para entrar na plataforma.
                   </p>
                 </div>
               </div>
@@ -313,7 +315,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                 <div>
                   <label className="block text-[11px] uppercase font-bold tracking-wider text-slate-600 mb-1" htmlFor="identifier">
-                    E-mail Institucional ou N.º de Processo / Agente
+                    E-mail
                   </label>
                   <div className="relative flex items-center bg-slate-100 rounded-lg focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0b1f3a] transition-all">
                     <span className="material-symbols-outlined text-slate-400 pl-3 pr-2 text-[20px] select-none">
@@ -328,13 +330,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                         setIdentifier(e.target.value);
                         if (errorMessage) setErrorMessage(null);
                       }}
-                      placeholder="ex: admin@escola.pt, prof.marta@escola.pt ou 2410"
+                      placeholder="ex: admin@escola.ao"
                       className="w-full py-3 pr-3 bg-transparent text-slate-800 text-sm focus:outline-none"
                       autoComplete="username"
                     />
                   </div>
                   <span className="text-[10px] text-slate-400 mt-1 block">
-                    Pode utilizar o seu e-mail institucional, n.º de processo de estudante ou n.º de agente.
                   </span>
                 </div>
 
@@ -389,7 +390,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                       onChange={(e) => setRememberMe(e.target.checked)}
                       className="w-4 h-4 rounded text-[#0b1f3a] focus:ring-0 accent-[#0b1f3a] cursor-pointer"
                     />
-                    <span>Lembrar-me neste posto de trabalho</span>
+                    <span>Lembrar-me</span>
                   </label>
                   <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
                     <span className="material-symbols-outlined text-[13px]">lock</span> SSL TLS 1.3
@@ -408,7 +409,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                     </>
                   ) : (
                     <>
-                      <span>Entrar no Sistema</span>
+                      <span>Entrar</span>
                       <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                     </>
                   )}
@@ -425,7 +426,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   }}
                   className="text-xs font-bold text-[#0b1f3a] hover:text-[#7a0c0c] hover:underline"
                 >
-                  Registar Nova Instituição
+                  Registar
                 </button>
               </div>
             </div>
@@ -439,9 +440,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                     <span className="w-6 h-6 rounded-full bg-[#0b1f3a] text-white text-[11px] font-bold flex items-center justify-center">1</span>
                     <span className="text-[11px] uppercase font-bold tracking-wider text-slate-400">de 2 · Conta de Administrador</span>
                   </div>
-                  <h2 className="font-headline text-2xl font-bold text-slate-900">Criar Conta de Administrador</h2>
+                  <h2 className="font-headline text-2xl font-bold text-slate-900">Criar Conta</h2>
                   <p className="text-xs text-slate-500 mt-1">
-                    Estes dados criam o utilizador com acesso total (Administrador Geral) à nova instituição.
+                    Estes dados criam o utilizador com acesso total (Administrador) à nova instituição.
                   </p>
                 </div>
               </div>
@@ -497,7 +498,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] uppercase font-bold tracking-wider text-slate-600 mb-1">
-                      E-mail Institucional
+                      E-mail
                     </label>
                     <input
                       type="email"
@@ -555,7 +556,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   type="submit"
                   className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-bold text-white bg-[#0b1f3a] hover:bg-[#7a0c0c] transition-colors duration-200 shadow-md text-sm cursor-pointer mt-2"
                 >
-                  <span>Continuar para Dados da Instituição</span>
+                  <span>Próximo</span>
                   <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                 </button>
               </form>
@@ -570,7 +571,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   className="text-xs font-bold text-slate-500 hover:text-[#0b1f3a] hover:underline flex items-center gap-1 justify-center w-full"
                 >
                   <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-                  <span>Voltar ao Início de Sessão</span>
+                  <span>Anterior</span>
                 </button>
               </div>
             </div>
@@ -621,6 +622,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                       type="text"
                       value={institutionForm.nif}
                       onChange={(e) => setInstitutionForm((p) => ({ ...p, nif: e.target.value }))}
+                      placeholder="ex: 5457896525"
                       className="w-full py-2.5 px-3 bg-slate-100 rounded-lg focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-sm transition-all"
                     />
                   </div>
@@ -646,6 +648,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                     <input
                       type="text"
                       value={institutionForm.province}
+                      placeholder="ex: Malanje"
                       onChange={(e) => setInstitutionForm((p) => ({ ...p, province: e.target.value }))}
                       className="w-full py-2.5 px-3 bg-slate-100 rounded-lg focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-sm transition-all"
                     />
@@ -658,6 +661,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                       type="text"
                       value={institutionForm.municipality}
                       onChange={(e) => setInstitutionForm((p) => ({ ...p, municipality: e.target.value }))}
+                      placeholder="ex: Malanje"
                       className="w-full py-2.5 px-3 bg-slate-100 rounded-lg focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-sm transition-all"
                     />
                   </div>
@@ -671,6 +675,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                     type="text"
                     value={institutionForm.address}
                     onChange={(e) => setInstitutionForm((p) => ({ ...p, address: e.target.value }))}
+                    placeholder="ex: Bairro Campo da aviação, Sede de Malanje"
                     className="w-full py-2.5 px-3 bg-slate-100 rounded-lg focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-sm transition-all"
                   />
                 </div>
@@ -684,6 +689,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                       type="text"
                       value={institutionForm.phone}
                       onChange={(e) => setInstitutionForm((p) => ({ ...p, phone: e.target.value }))}
+                      placeholder="ex: +244 938 882 190"
                       className="w-full py-2.5 px-3 bg-slate-100 rounded-lg focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-sm transition-all"
                     />
                   </div>
@@ -695,6 +701,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                       type="email"
                       value={institutionForm.email}
                       onChange={(e) => setInstitutionForm((p) => ({ ...p, email: e.target.value }))}
+                      placeholder="ex: secretaria@escolabandmed.com"
                       className="w-full py-2.5 px-3 bg-slate-100 rounded-lg focus:bg-white focus:ring-2 focus:ring-[#0b1f3a] outline-none text-sm transition-all"
                     />
                   </div>
@@ -706,13 +713,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                     onClick={handleSkipInstitutionStep}
                     className="w-full sm:w-auto flex items-center justify-center gap-1.5 py-3 px-5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors duration-200 text-sm cursor-pointer"
                   >
-                    <span>Pular por Agora</span>
+                    <span>Pular</span>
                   </button>
                   <button
                     type="submit"
                     className="w-full flex-1 flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-bold text-white bg-[#0b1f3a] hover:bg-[#7a0c0c] transition-colors duration-200 shadow-md text-sm cursor-pointer"
                   >
-                    <span>Concluir e Criar Instituição</span>
+                    <span>Concluir</span>
                     <span className="material-symbols-outlined text-[18px]">check</span>
                   </button>
                 </div>
@@ -728,7 +735,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   className="text-xs font-bold text-slate-500 hover:text-[#0b1f3a] hover:underline flex items-center gap-1 justify-center w-full"
                 >
                   <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-                  <span>Voltar aos Dados do Administrador</span>
+                  <span>Anterior</span>
                 </button>
               </div>
             </div>
@@ -736,11 +743,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
           <div className="mt-8 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
             <div className="flex items-center gap-3">
-              <span>© 2025 BandMed</span>
+              <span>© 2026 BandMed</span>
               <span>•</span>
-              <span>Ambiente Seguro SSL</span>
+              <span>Ambiente Seguro</span>
             </div>
-            <span className="font-mono text-[11px]">Sistema Académico MED</span>
+            <span className="font-mono text-[11px]">Sistema Académico</span>
           </div>
         </div>
       </div>
@@ -751,8 +758,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#0b1f3a] text-[22px]">contact_support</span>
-                <h3 className="font-bold text-slate-900 text-sm">Recuperação de Palavra-passe</h3>
+                <span className="material-symbols-outlined text-[#0b1f3a] text-[22px]"></span>
+                <h3 className="font-bold text-slate-900 text-sm">Recuperar palavra-passe</h3>
               </div>
               <button
                 onClick={() => setShowHelpModal(false)}
@@ -763,18 +770,18 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             </div>
             <div className="py-4 space-y-3 text-xs text-slate-600 leading-relaxed">
               <p>
-                Por motivos de conformidade e segurança do Ministério da Educação (MED), as redefinições de credenciais são geridas centralmente.
+                Por motivos de conformidade e segurança do Sistema de Gestão(BANDMED), as redefinições de credenciais são geridas centralmente.
               </p>
               <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl space-y-1.5 text-blue-950">
                 <div className="font-semibold flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[16px] text-[#0b1f3a]">domain</span>
-                  Secretaria Geral & Suporte de TI
+                  Direcção e Secretaria Geral
                 </div>
                 <p className="text-[11px]">
-                  Dirija-se ao Gabinete de Tecnologias Educativas ou contacte a Secretaria com o seu documento de identificação (Bilhete de Identidade ou Cartão de Estudante).
+                  Dirija-se ao Gabinete da Direcção Geral  ou contacte a Secretaria com o seu documento de identificação (Bilhete de Identidade ou Cartão de Estudante).
                 </p>
                 <div className="text-[11px] pt-1 border-t border-blue-200/50">
-                  E-mail: <code>suporte@bandmed.edu.pt</code> | Ramal: 201
+                  E-mail de Suporte: <code>suportbandmed@gmail.com</code>
                 </div>
               </div>
             </div>
@@ -783,7 +790,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 onClick={() => setShowHelpModal(false)}
                 className="px-4 py-2 bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white text-xs font-semibold rounded-lg transition-colors"
               >
-                Entendido
+                OK
               </button>
             </div>
           </div>

@@ -1554,58 +1554,104 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
       {/* MODAL: FICHA INDIVIDUAL COMPLETA DO ALUNO COM TODOS OS DADOS (A4 PADRÃO - CONFORME IMAGEM 1) */}
       {viewingStudent && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center p-3 sm:p-4 printable-modal-overlay overflow-y-auto print:p-0 print:m-0 print:block">
-          <div className="printable-document bg-white rounded-none max-w-4xl w-full shadow-2xl border border-slate-400 overflow-hidden flex flex-col my-4 print:my-0 print:border-none print:shadow-none print:w-full print:max-h-none">
+          <style>{`
+            @media print {
+              @page {
+                size: A4 portrait !important;
+                margin: 8mm 8mm !important;
+              }
+            }
+          `}</style>
+          <div className="printable-document printable-portrait bg-white rounded-none max-w-4xl w-full shadow-2xl border border-slate-400 overflow-hidden flex flex-col my-4 print:my-0 print:border-none print:shadow-none print:w-full print:max-h-none">
             {/* Modal Header (Oculto na impressão) */}
             <div className="px-6 py-3 bg-[#0b1f3a] text-white flex items-center justify-between gap-3 border-b border-slate-700 no-print">
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[20px] text-amber-400">description</span>
                 <h3 className="font-bold text-sm sm:text-base tracking-wide uppercase">
-                  Ficha Individual do Aluno • Folha A4 Oficial
+                  Ficha do Aluno
                 </h3>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center">
                 <button
+                  type="button"
                   onClick={() => setViewingStudent(null)}
-                  className="text-slate-300 hover:text-white p-1 cursor-pointer"
+                  className="text-slate-300 hover:text-white p-1 cursor-pointer transition-colors"
+                  title="Fechar"
+                  aria-label="Fechar"
                 >
                   <span className="material-symbols-outlined text-[22px]">close</span>
                 </button>
               </div>
             </div>
 
-            {/* Modal Body - Folha A4 com Estrutura Idêntica à Imagem 1 */}
+            {/* Modal Body - Folha A4 com Estrutura Idêntica à Imagem 1 (Foto no canto direito) */}
             <div className="p-6 sm:p-8 space-y-3.5 text-slate-800 bg-white text-xs">
-              {/* Cabeçalho Institucional Oficial A4 */}
+              {/* Cabeçalho Institucional Oficial A4 com Foto no Canto Superior Direito */}
               <div className="border-b-2 border-[#0b1f3a] pb-3 print-break-avoid">
-                <div className="text-center mb-2">
-                  <h1 className="text-base sm:text-lg font-black tracking-wide text-[#0b1f3a] uppercase">
-                    {db.settings?.schoolName}
-                  </h1>
-                  <p className="text-[11px] text-slate-500 font-medium">
-                    {db.settings?.subTitle || `NIF: ${db.settings?.nif} • ${db.settings?.province}, Angola`}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-                  <div>
-                    <div className="text-[10px] font-bold text-sky-800 tracking-wider uppercase">
-                      DOCUMENTO HOMOLOGADO OFICIAL
+                <div className="flex items-start justify-between gap-4">
+                  {/* Informações Institucionais à Esquerda */}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      {db.settings?.logoUrl && (
+                        <div className="w-12 h-12 bg-white border border-slate-300 p-0.5 flex items-center justify-center shrink-0">
+                          <img
+                            src={db.settings.logoUrl}
+                            alt={db.settings?.schoolName || 'Escola'}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <h1 className="text-base sm:text-lg font-black tracking-wide text-[#0b1f3a] uppercase">
+                          {db.settings?.schoolName}
+                        </h1>
+                        <p className="text-[11px] text-slate-500 font-medium">
+                          {db.settings?.subTitle || `NIF: ${db.settings?.nif} • ${db.settings?.province}, Angola`}
+                        </p>
+                      </div>
                     </div>
-                    <h2 className="text-sm sm:text-base font-black tracking-tight text-slate-900 uppercase">
-                      FICHA INDIVIDUAL DE CADASTRO & MATRÍCULA
-                    </h2>
-                    <div className="text-[11px] text-slate-500 font-semibold">
-                      Ano Lectivo {db.settings?.currentAcademicYear || '2024 / 2025'}
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-200">
+                      <div>
+                        <div className="text-[10px] font-bold text-sky-800 tracking-wider uppercase">
+                          DOCUMENTO HOMOLOGADO
+                        </div>
+                        <h2 className="text-sm sm:text-base font-black tracking-tight text-slate-900 uppercase">
+                          FICHA DE CADASTRO & MATRÍCULA
+                        </h2>
+                        <div className="text-[11px] text-slate-500 font-semibold">
+                          Ano Lectivo {db.settings?.currentAcademicYear || '2024 / 2025'}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 bg-[#0b1f3a] text-white font-bold text-[11px] uppercase tracking-wider">
+                          PORTAL DO ALUNO
+                        </span>
+                        <span className="px-2.5 py-1 bg-amber-50 text-amber-900 border border-amber-300 font-mono font-bold text-xs">
+                          Proc. #{viewingStudent.procNumber}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-[#0b1f3a] text-white font-bold text-[11px] uppercase tracking-wider">
-                      PORTAL DO ALUNO
-                    </span>
-                    <span className="px-2.5 py-1 bg-amber-50 text-amber-900 border border-amber-300 font-mono font-bold text-xs">
-                      Proc. #{viewingStudent.procNumber}
+                  {/* Foto 3x4 Oficial no Canto Superior Direito (Conforme Imagem 1) */}
+                  <div className="flex flex-col items-center justify-center p-1.5 bg-slate-50 border border-slate-400 text-center shrink-0 w-24">
+                    <div className="w-20 h-24 bg-slate-200 border border-slate-400 overflow-hidden flex items-center justify-center shadow-2xs">
+                      {viewingStudent.avatar || viewingStudent.docPassPhoto ? (
+                        <img
+                          src={viewingStudent.docPassPhoto || viewingStudent.avatar}
+                          alt={viewingStudent.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-xl font-bold text-slate-400">
+                          {viewingStudent.name.slice(0, 2).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[8px] font-bold uppercase text-slate-600 tracking-tight mt-1">
                     </span>
                   </div>
                 </div>
@@ -1621,84 +1667,62 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                   <span className="text-[10px] font-bold text-slate-400 uppercase">SECÇÃO 01</span>
                 </div>
 
-                <div className="p-3.5 grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
-                  <div className="md:col-span-3 space-y-2.5 text-xs">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <div className="sm:col-span-2">
-                        <span className="block text-[11px] text-slate-500 font-semibold">Nome Completo:</span>
-                        <div className="p-1.5 bg-slate-50 border border-slate-300 font-bold text-slate-900 truncate">
-                          {viewingStudent.name}
-                        </div>
-                      </div>
-                      <div>
-                        <span className="block text-[11px] text-slate-500 font-semibold">Abrev / Tratamento:</span>
-                        <div className="p-1.5 bg-slate-50 border border-slate-300 font-semibold text-slate-800 truncate">
-                          {viewingStudent.name.split(' ')[0]} {viewingStudent.name.split(' ').slice(-1)[0]}
-                        </div>
+                <div className="p-3.5 space-y-2.5 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="sm:col-span-2">
+                      <span className="block text-[11px] text-slate-500 font-semibold">Nome Completo:</span>
+                      <div className="p-1.5 bg-slate-50 border border-slate-300 font-bold text-slate-900 truncate">
+                        {viewingStudent.name}
                       </div>
                     </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      <div>
-                        <span className="block text-[11px] text-slate-500 font-semibold">Género:</span>
-                        <div className="p-1.5 bg-slate-50 border border-slate-300 font-semibold text-slate-800">
-                          {viewingStudent.gender || 'Masculino'}
-                        </div>
-                      </div>
-                      <div>
-                        <span className="block text-[11px] text-slate-500 font-semibold">Data Nascimento:</span>
-                        <div className="p-1.5 bg-slate-50 border border-slate-300 font-mono font-semibold text-slate-800">
-                          {viewingStudent.birthDate || '12/03/2008'}
-                        </div>
-                      </div>
-                      <div>
-                        <span className="block text-[11px] text-slate-500 font-semibold">Naturalidade / Província:</span>
-                        <div className="p-1.5 bg-slate-50 border border-slate-300 text-slate-800 truncate">
-                          {viewingStudent.placeOfBirth || viewingStudent.birthPlace || 'Luanda, Angola'}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      <div>
-                        <span className="block text-[11px] text-slate-500 font-semibold">Número de B.I. / Passaporte:</span>
-                        <div className="p-1.5 bg-slate-50 border border-slate-300 font-mono font-bold text-[#0b1f3a]">
-                          {viewingStudent.biNumber || viewingStudent.citizenCard || '004829104LA042'}
-                        </div>
-                      </div>
-                      <div>
-                        <span className="block text-[11px] text-slate-500 font-semibold">Estado Civil:</span>
-                        <div className="p-1.5 bg-slate-50 border border-slate-300 text-slate-800">
-                          Solteiro(a)
-                        </div>
-                      </div>
-                      <div>
-                        <span className="block text-[11px] text-slate-500 font-semibold">Grupo Sanguíneo:</span>
-                        <div className="p-1.5 bg-slate-50 border border-slate-300 font-mono font-bold text-red-700">
-                          {viewingStudent.bloodType || 'O+'}
-                        </div>
+                    <div>
+                      <span className="block text-[11px] text-slate-500 font-semibold">Abrev / Tratamento:</span>
+                      <div className="p-1.5 bg-slate-50 border border-slate-300 font-semibold text-slate-800 truncate">
+                        {viewingStudent.name.split(' ')[0]} {viewingStudent.name.split(' ').slice(-1)[0]}
                       </div>
                     </div>
                   </div>
 
-                  {/* Foto 3x4 Oficial */}
-                  <div className="flex flex-col items-center justify-center p-2 bg-slate-50 border border-slate-300 text-center">
-                    <div className="w-24 h-28 bg-slate-200 border-2 border-slate-400 overflow-hidden mb-1 flex items-center justify-center shadow-2xs">
-                      {viewingStudent.avatar || viewingStudent.docPassPhoto ? (
-                        <img
-                          src={viewingStudent.docPassPhoto || viewingStudent.avatar}
-                          alt={viewingStudent.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-2xl font-bold text-slate-400">
-                          {viewingStudent.name.slice(0, 2).toUpperCase()}
-                        </span>
-                      )}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div>
+                      <span className="block text-[11px] text-slate-500 font-semibold">Género:</span>
+                      <div className="p-1.5 bg-slate-50 border border-slate-300 font-semibold text-slate-800">
+                        {viewingStudent.gender || 'Masculino'}
+                      </div>
                     </div>
-                    <span className="text-[9px] font-bold uppercase text-slate-500 tracking-tight">
-                      Foto Tipo Passe (3x4) Arquivada
-                    </span>
+                    <div>
+                      <span className="block text-[11px] text-slate-500 font-semibold">Data Nascimento:</span>
+                      <div className="p-1.5 bg-slate-50 border border-slate-300 font-mono font-semibold text-slate-800">
+                        {viewingStudent.birthDate || '12/03/2008'}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="block text-[11px] text-slate-500 font-semibold">Naturalidade / Província:</span>
+                      <div className="p-1.5 bg-slate-50 border border-slate-300 text-slate-800 truncate">
+                        {viewingStudent.placeOfBirth || viewingStudent.birthPlace || 'Luanda, Angola'}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="block text-[11px] text-slate-500 font-semibold">Nacionalidade:</span>
+                      <div className="p-1.5 bg-slate-50 border border-slate-300 text-slate-800">
+                        Angolana
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <span className="block text-[11px] text-slate-500 font-semibold">Número de B.I. / Passaporte:</span>
+                      <div className="p-1.5 bg-slate-50 border border-slate-300 font-mono font-bold text-[#0b1f3a]">
+                        {viewingStudent.biNumber || viewingStudent.citizenCard || '004829104LA042'}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="block text-[11px] text-slate-500 font-semibold">Estado Civil:</span>
+                      <div className="p-1.5 bg-slate-50 border border-slate-300 text-slate-800">
+                        Solteiro(a)
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2016,23 +2040,11 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                     </span>
                     <span className="text-[10px] text-slate-500">{db.settings?.schoolName}</span>
                   </div>
-
-                  {/* Carimbo de Secretaria Homologado (Imagem 1) */}
-                  <div className="border border-slate-300 p-2 bg-slate-50">
-                    <div className="w-14 h-14 rounded-full border-2 border-[#ac332b] text-[#ac332b] flex flex-col items-center justify-center p-0.5 text-center font-bold text-[6px] leading-tight rotate-[-4deg] uppercase mx-auto mb-1">
-                      <span>SECRETARIA</span>
-                      <span className="text-[5px]">CEPB</span>
-                      <span>HOMOLOGADO</span>
-                    </div>
-                    <span className="block text-[8px] text-slate-500">
-                      Processo autenticado no sistema
-                    </span>
-                  </div>
                 </div>
 
                 <div className="mt-3 pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between text-[9px] text-slate-500">
                   <span>Emissão: {new Date().toLocaleDateString('pt-PT')} • Sistema Integrado BandMed</span>
-                  <span>Válido em todo o território nacional como comprovativo de matrícula</span>
+                  <span></span>
                 </div>
               </div>
             </div>
@@ -2072,7 +2084,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-[20px] text-red-400">warning</span>
                 <h3 className="font-bold text-xs tracking-wider uppercase text-white">
-                  Confirmar Eliminação do Aluno
+                  Eliminação
                 </h3>
               </div>
               <button
@@ -2124,7 +2136,7 @@ export const AlunosView: React.FC<AlunosViewProps> = ({ db, currentUserRole, onO
                 className="px-5 py-2.5 rounded-none bg-[#b91c1c] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-none border-none"
               >
                 <span className="material-symbols-outlined text-[16px]">delete</span>
-                <span>Sim, Eliminar Aluno</span>
+                <span>Eliminar</span>
               </button>
             </div>
           </div>

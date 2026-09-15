@@ -74,14 +74,38 @@ export const ReportCardModal: React.FC<ReportCardModalProps> = ({ student, db, o
   }, [threeTrimesterRecords, student.currentAverage]);
 
   const handlePrint = () => {
+    window.focus();
     window.print();
   };
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="printable-document bg-white rounded-none max-w-5xl w-full shadow-2xl overflow-hidden flex flex-col my-8 border border-slate-400 print:m-0 print:border-none print:shadow-none">
+    <div
+      className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto printable-modal-overlay print:p-0 print:m-0 print:block"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <style>{`
+        @media print {
+          @page {
+            size: A4 portrait !important;
+            margin: 6mm 6mm !important;
+          }
+        }
+      `}</style>
+      <div className="printable-document printable-portrait bg-white rounded-none max-w-5xl w-full shadow-2xl overflow-hidden flex flex-col my-4 sm:my-8 border border-slate-400 print:m-0 print:border-none print:shadow-none print:w-full">
         {/* Top Control Bar (Hidden on print) */}
-        <div className="px-6 py-3.5 bg-[#0b1f3a] text-white flex flex-wrap items-center justify-between gap-3 no-print print:hidden">
+        <div className="px-6 py-3.5 bg-[#0b1f3a] text-white flex flex-wrap items-center justify-between gap-3 no-print print:hidden sticky top-0 z-20">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-amber-400 text-[20px]">verified</span>
             <span className="font-bold text-sm">Boletim Escolar Oficial dos Três Trimestres</span>
@@ -131,19 +155,14 @@ export const ReportCardModal: React.FC<ReportCardModalProps> = ({ student, db, o
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
-              onClick={handlePrint}
-              className="px-3.5 py-1.5 rounded-none bg-[#7a0c0c] hover:bg-[#5e0909] text-white font-bold text-xs flex items-center gap-1.5 transition-colors border border-[#7a0c0c] cursor-pointer shadow-xs"
-            >
-              <span className="material-symbols-outlined text-[16px]">print</span>
-              <span>Imprimir / PDF</span>
-            </button>
-            <button
+              type="button"
               onClick={onClose}
-              className="text-slate-400 hover:text-white p-1 rounded-none cursor-pointer"
+              className="text-slate-300 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+              title="Fechar Janela do Boletim"
             >
-              <span className="material-symbols-outlined text-[20px]">close</span>
+              <span className="material-symbols-outlined text-xl">close</span>
             </button>
           </div>
         </div>
@@ -240,82 +259,86 @@ export const ReportCardModal: React.FC<ReportCardModalProps> = ({ student, db, o
             </div>
           </div>
 
-          {/* VIEW A: Complete 3-Trimester Master Table */}
+          {/* VIEW A: Complete 3-Trimester Master Table - Excel Styled with System Palette */}
           {selectedTrimester === 'all' ? (
             <div className="overflow-x-auto mb-6">
-              <table className="w-full text-left border-collapse border border-slate-300 font-sans text-xs">
+              <table className="w-full text-left border-collapse border border-slate-300 print:border-slate-400 font-sans text-xs print:text-[8pt]">
                 <thead>
-                  <tr className="bg-[#0b1f3a] text-white uppercase text-[10px]">
-                    <th rowSpan={2} className="p-2 border border-slate-300">Disciplina Curricular</th>
-                    <th colSpan={4} className="p-1.5 border border-slate-300 text-center bg-[#0b1f3a]">1.º Trimestre</th>
-                    <th colSpan={4} className="p-1.5 border border-slate-300 text-center bg-[#16335d]">2.º Trimestre</th>
-                    <th colSpan={4} className="p-1.5 border border-slate-300 text-center bg-[#22477f]">3.º Trimestre</th>
-                    <th rowSpan={2} className="p-2 border border-slate-300 text-center bg-[#7a0c0c] text-white">MFD</th>
-                    <th rowSpan={2} className="p-2 border border-slate-300 text-center">Situação Final</th>
+                  <tr className="bg-[#0b1f3a] text-white uppercase text-[10px] print:bg-[#0b1f3a] print:text-white">
+                    <th rowSpan={2} className="p-2 border border-slate-600 print:border-slate-500 font-extrabold">Disciplina Curricular</th>
+                    <th colSpan={4} className="p-1.5 border border-slate-600 print:border-slate-500 text-center bg-[#0d2647] print:bg-[#0d2647] font-extrabold">1.º Trimestre</th>
+                    <th colSpan={4} className="p-1.5 border border-slate-600 print:border-slate-500 text-center bg-[#12335e] print:bg-[#12335e] font-extrabold">2.º Trimestre</th>
+                    <th colSpan={4} className="p-1.5 border border-slate-600 print:border-slate-500 text-center bg-[#183f73] print:bg-[#183f73] font-extrabold">3.º Trimestre</th>
+                    <th rowSpan={2} className="p-2 border border-slate-600 print:border-slate-500 text-center bg-[#7a0c0c] text-amber-300 print:bg-[#7a0c0c] print:text-amber-300 font-black">MFD</th>
+                    <th rowSpan={2} className="p-2 border border-slate-600 print:border-slate-500 text-center font-extrabold">Situação Final</th>
                   </tr>
-                  <tr className="bg-[#122846] text-white text-[9px] uppercase font-bold text-center">
-                    <th className="p-1 border border-slate-400">MAC</th>
-                    <th className="p-1 border border-slate-400">NPP</th>
-                    <th className="p-1 border border-slate-400">NPT</th>
-                    <th className="p-1 border border-slate-400 bg-amber-600/30">MT1</th>
+                  <tr className="bg-[#183c6b] text-slate-200 text-[9px] uppercase font-bold text-center print:bg-[#183c6b] print:text-slate-200">
+                    <th className="p-1 border border-slate-600 print:border-slate-500">MAC</th>
+                    <th className="p-1 border border-slate-600 print:border-slate-500">NPP</th>
+                    <th className="p-1 border border-slate-600 print:border-slate-500">NPT</th>
+                    <th className="p-1 border border-slate-600 print:border-slate-500 bg-[#0f2849] text-amber-300 print:bg-[#0f2849] print:text-amber-300 font-black">MT1</th>
 
-                    <th className="p-1 border border-slate-400">MAC</th>
-                    <th className="p-1 border border-slate-400">NPP</th>
-                    <th className="p-1 border border-slate-400">NPT</th>
-                    <th className="p-1 border border-slate-400 bg-amber-600/30">MT2</th>
+                    <th className="p-1 border border-slate-600 print:border-slate-500">MAC</th>
+                    <th className="p-1 border border-slate-600 print:border-slate-500">NPP</th>
+                    <th className="p-1 border border-slate-600 print:border-slate-500">NPT</th>
+                    <th className="p-1 border border-slate-600 print:border-slate-500 bg-[#0f2849] text-amber-300 print:bg-[#0f2849] print:text-amber-300 font-black">MT2</th>
 
-                    <th className="p-1 border border-slate-400">MAC</th>
-                    <th className="p-1 border border-slate-400">NPP</th>
-                    <th className="p-1 border border-slate-400">NPT</th>
-                    <th className="p-1 border border-slate-400 bg-amber-600/30">MT3</th>
+                    <th className="p-1 border border-slate-600 print:border-slate-500">MAC</th>
+                    <th className="p-1 border border-slate-600 print:border-slate-500">NPP</th>
+                    <th className="p-1 border border-slate-600 print:border-slate-500">NPT</th>
+                    <th className="p-1 border border-slate-600 print:border-slate-500 bg-[#0f2849] text-amber-300 print:bg-[#0f2849] print:text-amber-300 font-black">MT3</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-200 print:divide-slate-300">
                   {threeTrimesterRecords.length === 0 ? (
                     <tr>
-                      <td colSpan={15} className="p-4 border border-slate-300 text-center text-slate-500 italic">
+                      <td colSpan={15} className="p-4 border border-slate-300 print:border-slate-400 text-center text-slate-500 italic">
                         Ainda não existem notas lançadas para este aluno no sistema.
                       </td>
                     </tr>
                   ) : (
                     threeTrimesterRecords.map((rec, idx) => (
-                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                        <td className="p-2 border border-slate-300 font-bold text-[#0b1f3a] whitespace-nowrap">
+                      <tr key={idx} className={idx % 2 === 1 ? 'bg-[#f8fafc]' : 'bg-white'}>
+                        <td className="p-1.5 px-2 border border-slate-300 print:border-slate-300 font-bold text-[#0b1f3a] whitespace-nowrap">
                           {rec.subjectName}
                         </td>
 
                         {/* 1º Trimestre */}
-                        <td className="p-1.5 border border-slate-300 text-center font-mono text-[11px]">{rec.mac1 ?? '-'}</td>
-                        <td className="p-1.5 border border-slate-300 text-center font-mono text-[11px]">{rec.npp1 ?? '-'}</td>
-                        <td className="p-1.5 border border-slate-300 text-center font-mono text-[11px]">{rec.npt1 ?? '-'}</td>
-                        <td className="p-1.5 border border-slate-300 text-center font-mono font-bold text-[#0b1f3a] bg-amber-50">
+                        <td className="p-1 border border-slate-300 print:border-slate-300 text-center font-mono text-[11px] print:text-[8pt]">{rec.mac1 ?? '-'}</td>
+                        <td className="p-1 border border-slate-300 print:border-slate-300 text-center font-mono text-[11px] print:text-[8pt]">{rec.npp1 ?? '-'}</td>
+                        <td className="p-1 border border-slate-300 print:border-slate-300 text-center font-mono text-[11px] print:text-[8pt]">{rec.npt1 ?? '-'}</td>
+                        <td className="p-1 border border-slate-300 print:border-slate-300 text-center font-mono font-bold text-[#0b1f3a] bg-blue-50/50 print:bg-blue-50/50">
                           {rec.mt1 ?? '-'}
                         </td>
 
                         {/* 2º Trimestre */}
-                        <td className="p-1.5 border border-slate-300 text-center font-mono text-[11px]">{rec.mac2 ?? '-'}</td>
-                        <td className="p-1.5 border border-slate-300 text-center font-mono text-[11px]">{rec.npp2 ?? '-'}</td>
-                        <td className="p-1.5 border border-slate-300 text-center font-mono text-[11px]">{rec.npt2 ?? '-'}</td>
-                        <td className="p-1.5 border border-slate-300 text-center font-mono font-bold text-[#0b1f3a] bg-amber-50">
+                        <td className="p-1 border border-slate-300 print:border-slate-300 text-center font-mono text-[11px] print:text-[8pt]">{rec.mac2 ?? '-'}</td>
+                        <td className="p-1 border border-slate-300 print:border-slate-300 text-center font-mono text-[11px] print:text-[8pt]">{rec.npp2 ?? '-'}</td>
+                        <td className="p-1 border border-slate-300 print:border-slate-300 text-center font-mono text-[11px] print:text-[8pt]">{rec.npt2 ?? '-'}</td>
+                        <td className="p-1 border border-slate-300 print:border-slate-300 text-center font-mono font-bold text-[#0b1f3a] bg-blue-50/50 print:bg-blue-50/50">
                           {rec.mt2 ?? '-'}
                         </td>
 
                         {/* 3º Trimestre */}
-                        <td className="p-1.5 border border-slate-300 text-center font-mono text-[11px]">{rec.mac3 ?? '-'}</td>
-                        <td className="p-1.5 border border-slate-300 text-center font-mono text-[11px]">{rec.npp3 ?? '-'}</td>
-                        <td className="p-1.5 border border-slate-300 text-center font-mono text-[11px]">{rec.npt3 ?? '-'}</td>
-                        <td className="p-1.5 border border-slate-300 text-center font-mono font-bold text-[#0b1f3a] bg-amber-50">
+                        <td className="p-1 border border-slate-300 print:border-slate-300 text-center font-mono text-[11px] print:text-[8pt]">{rec.mac3 ?? '-'}</td>
+                        <td className="p-1 border border-slate-300 print:border-slate-300 text-center font-mono text-[11px] print:text-[8pt]">{rec.npp3 ?? '-'}</td>
+                        <td className="p-1 border border-slate-300 print:border-slate-300 text-center font-mono text-[11px] print:text-[8pt]">{rec.npt3 ?? '-'}</td>
+                        <td className="p-1 border border-slate-300 print:border-slate-300 text-center font-mono font-bold text-[#0b1f3a] bg-blue-50/50 print:bg-blue-50/50">
                           {rec.mt3 ?? '-'}
                         </td>
 
                         {/* MFD */}
-                        <td className="p-1.5 border border-slate-300 text-center font-mono font-bold text-sm bg-rose-50 text-[#7a0c0c]">
+                        <td className="p-1 border border-slate-300 print:border-slate-300 text-center font-mono font-black text-xs print:text-[8.5pt] bg-rose-50/70 text-[#7a0c0c] print:bg-rose-50/70">
                           {rec.mfd ?? '-'}
                         </td>
 
                         {/* Situação */}
-                        <td className="p-1.5 border border-slate-300 text-center font-bold text-[11px] whitespace-nowrap">
-                          <span className={Number(rec.mfd) >= 10 ? 'text-emerald-800' : 'text-red-700'}>
+                        <td className="p-1 border border-slate-300 print:border-slate-300 text-center font-bold text-[10px] whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded-full inline-block ${
+                            Number(rec.mfd) >= 10
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 print:border-emerald-300'
+                              : 'bg-rose-50 text-rose-800 border border-rose-200 print:border-rose-300'
+                          }`}>
                             {rec.situation || (Number(rec.mfd) >= 10 ? 'Aprovado' : 'Recurso')}
                           </span>
                         </td>
@@ -324,26 +347,26 @@ export const ReportCardModal: React.FC<ReportCardModalProps> = ({ student, db, o
                   )}
 
                   {/* Summary Row across 3 trimesters */}
-                  <tr className="bg-slate-200 font-bold">
-                    <td className="p-2 border border-slate-300 uppercase text-right">
-                      Médias Ponderadas:
+                  <tr className="bg-[#0b1f3a] text-white font-bold print:bg-[#0b1f3a] print:text-white">
+                    <td className="p-1.5 px-2 border border-slate-600 print:border-slate-500 uppercase text-right text-[10px]">
+                      Médias Gerais:
                     </td>
-                    <td colSpan={3} className="p-1 border border-slate-300 text-right text-[10px] text-slate-600">1.º Trim:</td>
-                    <td className="p-1.5 border border-slate-300 text-center font-mono font-bold text-[#0b1f3a] bg-amber-100">
+                    <td colSpan={3} className="p-1 border border-slate-600 print:border-slate-500 text-right text-[9px] text-slate-300">1.º Trim:</td>
+                    <td className="p-1 border border-slate-600 print:border-slate-500 text-center font-mono font-bold text-amber-300 bg-[#12335e] print:bg-[#12335e]">
                       {avgT1.toFixed(1)}
                     </td>
-                    <td colSpan={3} className="p-1 border border-slate-300 text-right text-[10px] text-slate-600">2.º Trim:</td>
-                    <td className="p-1.5 border border-slate-300 text-center font-mono font-bold text-[#0b1f3a] bg-amber-100">
+                    <td colSpan={3} className="p-1 border border-slate-600 print:border-slate-500 text-right text-[9px] text-slate-300">2.º Trim:</td>
+                    <td className="p-1 border border-slate-600 print:border-slate-500 text-center font-mono font-bold text-amber-300 bg-[#12335e] print:bg-[#12335e]">
                       {avgT2.toFixed(1)}
                     </td>
-                    <td colSpan={3} className="p-1 border border-slate-300 text-right text-[10px] text-slate-600">3.º Trim:</td>
-                    <td className="p-1.5 border border-slate-300 text-center font-mono font-bold text-[#0b1f3a] bg-amber-100">
+                    <td colSpan={3} className="p-1 border border-slate-600 print:border-slate-500 text-right text-[9px] text-slate-300">3.º Trim:</td>
+                    <td className="p-1 border border-slate-600 print:border-slate-500 text-center font-mono font-bold text-amber-300 bg-[#12335e] print:bg-[#12335e]">
                       {avgT3.toFixed(1)}
                     </td>
-                    <td className="p-2 border border-slate-300 text-center text-sm font-mono text-[#7a0c0c] bg-rose-100">
+                    <td className="p-1 border border-slate-600 print:border-slate-500 text-center text-xs font-mono font-black text-amber-300 bg-[#7a0c0c] print:bg-[#7a0c0c]">
                       {avgMFD.toFixed(1)}
                     </td>
-                    <td className="p-2 border border-slate-300 text-center text-[11px] text-emerald-900 bg-emerald-50 font-bold">
+                    <td className="p-1 border border-slate-600 print:border-slate-500 text-center text-[10px] text-emerald-300 font-bold bg-[#0d2647] print:bg-[#0d2647]">
                       {avgMFD >= 14 ? 'Transita (Dispensa)' : avgMFD >= 9.5 ? 'Transita' : 'Exame'}
                     </td>
                   </tr>
@@ -352,24 +375,24 @@ export const ReportCardModal: React.FC<ReportCardModalProps> = ({ student, db, o
             </div>
           ) : (
             /* VIEW B: Focused Single Trimester Table (1, 2, or 3) */
-            <table className="w-full text-left border-collapse border border-slate-300 font-sans text-xs mb-6">
+            <table className="w-full text-left border-collapse border border-slate-300 print:border-slate-400 font-sans text-xs print:text-[8pt] mb-6">
               <thead>
-                <tr className="bg-[#0b1f3a] text-white uppercase text-[10px]">
-                  <th className="p-2.5 border border-slate-300">Disciplina Curricular</th>
-                  <th className="p-2.5 border border-slate-300 text-center">MAC (30%)</th>
-                  <th className="p-2.5 border border-slate-300 text-center">NPP (30%)</th>
-                  <th className="p-2.5 border border-slate-300 text-center">NPT (40%)</th>
-                  <th className="p-2.5 border border-slate-300 text-center bg-[#7a0c0c]">
+                <tr className="bg-[#0b1f3a] text-white uppercase text-[10px] print:bg-[#0b1f3a] print:text-white">
+                  <th className="p-2 border border-slate-600 print:border-slate-500 font-extrabold">Disciplina Curricular</th>
+                  <th className="p-2 border border-slate-600 print:border-slate-500 text-center">MAC (30%)</th>
+                  <th className="p-2 border border-slate-600 print:border-slate-500 text-center">NPP (30%)</th>
+                  <th className="p-2 border border-slate-600 print:border-slate-500 text-center">NPT (40%)</th>
+                  <th className="p-2 border border-slate-600 print:border-slate-500 text-center bg-[#7a0c0c] text-amber-300 font-black print:bg-[#7a0c0c] print:text-amber-300">
                     Média ({selectedTrimester}.º Trimestre)
                   </th>
-                  <th className="p-2.5 border border-slate-300">Apreciação Qualitativa</th>
-                  <th className="p-2.5 border border-slate-300">Situação Provisória</th>
+                  <th className="p-2 border border-slate-600 print:border-slate-500 font-extrabold">Apreciação Qualitativa</th>
+                  <th className="p-2 border border-slate-600 print:border-slate-500 font-extrabold">Situação Provisória</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-200 print:divide-slate-300">
                 {threeTrimesterRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-4 border border-slate-300 text-center text-slate-500 italic">
+                    <td colSpan={7} className="p-4 border border-slate-300 print:border-slate-400 text-center text-slate-500 italic">
                       Ainda não existem notas lançadas para este aluno no sistema.
                     </td>
                   </tr>
@@ -381,30 +404,38 @@ export const ReportCardModal: React.FC<ReportCardModalProps> = ({ student, db, o
                     const mt = selectedTrimester === 1 ? rec.mt1 : selectedTrimester === 2 ? rec.mt2 : rec.mt3;
                     const score = Number(mt) || 0;
                     return (
-                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                        <td className="p-2 border border-slate-300 font-bold text-[#0b1f3a]">{rec.subjectName}</td>
-                        <td className="p-2 border border-slate-300 text-center font-mono">{mac ?? '-'}</td>
-                        <td className="p-2 border border-slate-300 text-center font-mono">{npp ?? '-'}</td>
-                        <td className="p-2 border border-slate-300 text-center font-mono">{npt ?? '-'}</td>
-                        <td className="p-2 border border-slate-300 text-center font-mono font-bold text-[#0b1f3a] bg-amber-50">
+                      <tr key={idx} className={idx % 2 === 1 ? 'bg-[#f8fafc]' : 'bg-white'}>
+                        <td className="p-1.5 px-2 border border-slate-300 print:border-slate-300 font-bold text-[#0b1f3a]">{rec.subjectName}</td>
+                        <td className="p-1.5 border border-slate-300 print:border-slate-300 text-center font-mono">{mac ?? '-'}</td>
+                        <td className="p-1.5 border border-slate-300 print:border-slate-300 text-center font-mono">{npp ?? '-'}</td>
+                        <td className="p-1.5 border border-slate-300 print:border-slate-300 text-center font-mono">{npt ?? '-'}</td>
+                        <td className="p-1.5 border border-slate-300 print:border-slate-300 text-center font-mono font-bold text-[#0b1f3a] bg-blue-50/50 print:bg-blue-50/50">
                           {mt ?? '-'}
                         </td>
-                        <td className="p-2 border border-slate-300 font-medium">{getQualitative(score)}</td>
-                        <td className="p-2 border border-slate-300 font-semibold text-emerald-800">{getSituation(score)}</td>
+                        <td className="p-1.5 border border-slate-300 print:border-slate-300 font-medium">{getQualitative(score)}</td>
+                        <td className="p-1.5 border border-slate-300 print:border-slate-300 font-semibold">
+                          <span className={`px-2 py-0.5 rounded-full inline-block text-[10px] ${
+                            score >= 10
+                              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                              : 'bg-rose-50 text-rose-800 border border-rose-200'
+                          }`}>
+                            {getSituation(score)}
+                          </span>
+                        </td>
                       </tr>
                     );
                   })
                 )}
-                <tr className="bg-slate-200 font-bold">
-                  <td className="p-2.5 border border-slate-300 uppercase text-right" colSpan={4}>
+                <tr className="bg-[#0b1f3a] text-white font-bold print:bg-[#0b1f3a] print:text-white">
+                  <td className="p-2 border border-slate-600 print:border-slate-500 uppercase text-right" colSpan={4}>
                     Média do {selectedTrimester}.º Trimestre:
                   </td>
-                  <td className="p-2.5 border border-slate-300 text-center text-sm font-mono text-[#7a0c0c] bg-amber-50">
+                  <td className="p-2 border border-slate-600 print:border-slate-500 text-center text-sm font-mono font-black text-amber-300 bg-[#7a0c0c] print:bg-[#7a0c0c]">
                     {(selectedTrimester === 1 ? avgT1 : selectedTrimester === 2 ? avgT2 : avgT3).toFixed(1)} Valores
                   </td>
-                  <td className="p-2.5 border border-slate-300" colSpan={2}>
+                  <td className="p-2 border border-slate-600 print:border-slate-500" colSpan={2}>
                     Classificação Trimestral:{' '}
-                    <strong className={(selectedTrimester === 1 ? avgT1 : selectedTrimester === 2 ? avgT2 : avgT3) >= 10 ? 'text-emerald-800' : 'text-red-700'}>
+                    <strong className="text-amber-300">
                       {(selectedTrimester === 1 ? avgT1 : selectedTrimester === 2 ? avgT2 : avgT3) >= 16
                         ? 'Excelente'
                         : (selectedTrimester === 1 ? avgT1 : selectedTrimester === 2 ? avgT2 : avgT3) >= 14
@@ -475,6 +506,34 @@ export const ReportCardModal: React.FC<ReportCardModalProps> = ({ student, db, o
 
           <div className="text-center text-[10px] text-slate-400 font-sans mt-8">
             Emitido via Sistema BandMed Core v3.4.2 em {new Date().toLocaleDateString('pt-PT')} • Chave de Validação: BM-CERT-{(Math.random()*1e8|0).toString(16).toUpperCase()}
+          </div>
+        </div>
+
+        {/* Modal Bottom Action Bar (Hidden in Print) */}
+        <div className="px-6 py-3.5 bg-slate-100 border-t border-slate-300 flex flex-wrap items-center justify-between gap-3 no-print print:hidden">
+          <div className="text-xs text-slate-600 font-sans">
+            Boletim Escolar Oficial • Aluno(a): <strong className="text-slate-900">{student.name}</strong> • Proc. N.º: <span className="font-mono font-bold text-[#0b1f3a]">{student.procNumber}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#7a0c0c] hover:bg-[#5e0909] text-white font-bold text-xs border border-[#7a0c0c] cursor-pointer transition-colors shadow-xs"
+              title="Imprimir Boletim Oficial de Notas"
+            >
+              <span className="material-symbols-outlined text-[16px]">print</span>
+              <span>Imprimir Boletim</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex items-center gap-1 px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs cursor-pointer transition-colors border border-slate-300"
+              title="Fechar Janela do Boletim"
+            >
+              <span className="material-symbols-outlined text-[16px]">close</span>
+              <span>Fechar</span>
+            </button>
           </div>
         </div>
       </div>

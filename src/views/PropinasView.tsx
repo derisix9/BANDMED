@@ -689,7 +689,7 @@ export const PropinasView: React.FC<PropinasViewProps> = ({ db, currentUserRole 
                   className="px-5 py-2.5 rounded-none bg-[#b91c1c] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-none border-none"
                 >
                   <span className="material-symbols-outlined text-[16px]">delete</span>
-                  <span>Sim, Eliminar Fatura</span>
+                  <span>Eliminar</span>
                 </button>
               </div>
             </div>

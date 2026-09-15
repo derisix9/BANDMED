@@ -28,9 +28,51 @@
         "schoolName": { "type": "string" },
         "nif": { "type": "string" }
       }
+    },
+    "User": {
+      "title": "User",
+      "description": "User account for authentication and role-based access",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "institutionId": { "type": "string" },
+        "password": { "type": "string" }
+      }
+    },
+    "Institution": {
+      "title": "Institution",
+      "description": "Institution database container",
+      "type": "object",
+      "properties": {
+        "institutionId": { "type": "string" },
+        "lastCloudSync": { "type": "string" }
+      }
+    },
+    "InstitutionsRegistry": {
+      "title": "InstitutionsRegistry",
+      "description": "Registry index of all institutions in the system",
+      "type": "object",
+      "properties": {
+        "updatedAt": { "type": "string" }
+      }
     }
   },
   "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User accounts collection for persistent authentication across sessions"
+    },
+    "/institutions/{institutionId}": {
+      "schema": "Institution",
+      "description": "Multi-tenant institution data containers"
+    },
+    "/institutions_registry/{registryId}": {
+      "schema": "InstitutionsRegistry",
+      "description": "Global index of registered institutions"
+    },
     "/school_data/{documentId}": {
       "schema": "SchoolData",
       "description": "Main collection for real-time school system database synchronization"

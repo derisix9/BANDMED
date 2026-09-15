@@ -252,6 +252,20 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
   };
 
   const handleSaveSheet = async () => {
+    if (!isSigned) {
+      await runGlobalOperation(
+        async () => {
+          throw new Error('Sem uma caderneta ser homologada pelo professor não deve ser gravada na base de dados.');
+        },
+        {
+          loadingMessage: 'A verificar conformidade pedagógica da caderneta...',
+          errorMessage: 'Caderneta Não Homologada',
+          errorDetails: 'Sem a caderneta ser homologada e rubricada digitalmente pelo professor, não é permitido gravar na base de dados.'
+        }
+      );
+      return;
+    }
+
     await runGlobalOperation(
       async () => {
         const sheet = buildCurrentSheet(isSigned);
@@ -260,8 +274,8 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
         setTimeout(() => setSaveFeedback(null), 3500);
       },
       {
-        loadingMessage: 'A gravar caderneta diária...',
-        successMessage: 'Operação feita com sucesso!'
+        loadingMessage: 'A gravar caderneta diária na base de dados...',
+        successMessage: 'Caderneta homologada gravada com sucesso!'
       }
     );
   };
@@ -288,12 +302,25 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
       },
       {
         loadingMessage: 'A homologar e rubricar digitalmente caderneta...',
-        successMessage: 'Operação feita com sucesso!'
+        successMessage: 'Caderneta homologada com sucesso!'
       }
     );
   };
 
-  const handlePrintSheet = () => {
+  const handlePrintSheet = async () => {
+    if (!isSigned) {
+      await runGlobalOperation(
+        async () => {
+          throw new Error('A caderneta diária necessita de ser homologada e rubricada digitalmente pelo professor antes da impressão.');
+        },
+        {
+          loadingMessage: 'A verificar conformidade de impressão...',
+          errorMessage: 'Impressão Não Permitida',
+          errorDetails: 'A caderneta de frequência só pode ser impressa após homologação com rubrica digital do professor.'
+        }
+      );
+      return;
+    }
     window.print();
   };
 
@@ -308,7 +335,15 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
   const allRecordedSheets = db.attendanceSheets || [];
 
   return (
-    <div className="flex flex-col w-full gap-6 pb-12 printable-document">
+    <div className="flex flex-col w-full gap-6 pb-12 printable-document printable-landscape">
+      <style>{`
+        @media print {
+          @page {
+            size: A4 landscape !important;
+            margin: 4mm 5mm !important;
+          }
+        }
+      `}</style>
       {/* Toast Feedback */}
       {saveFeedback && (
         <div className="fixed top-5 right-5 z-50 bg-emerald-800 text-white px-5 py-3 rounded-none shadow-xl border border-emerald-600 flex items-center gap-3 animate-fade-in">
@@ -363,20 +398,45 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
           <button
             type="button"
             onClick={handleSaveSheet}
-            className="px-4 py-2 rounded-none bg-[#0b1f3a] hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 border border-[#0b1f3a] transition-colors shadow-none cursor-pointer"
-            title="Salvar alterações na base de dados institucional"
+            className={`px-4 py-2 rounded-none font-bold text-xs flex items-center gap-1.5 border transition-colors shadow-none cursor-pointer ${
+              isSigned
+                ? 'bg-[#0b1f3a] hover:bg-slate-800 text-white border-[#0b1f3a]'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+            }`}
+            title={
+              isSigned
+                ? 'Gravar caderneta homologada na base de dados institucional'
+                : 'Requer homologação docente (rubrica) antes de gravar na base de dados'
+            }
           >
-            <span className="material-symbols-outlined text-[17px]">save</span>
+            <span className="material-symbols-outlined text-[17px] text-amber-500">
+              {isSigned ? 'save' : 'lock'}
+            </span>
             <span>Gravar</span>
+            {!isSigned && (
+              <span className="text-[9px] px-1 py-0.2 bg-amber-100 text-amber-800 font-semibold uppercase">
+                Requer Rubrica
+              </span>
+            )}
           </button>
 
           <button
             type="button"
             onClick={handlePrintSheet}
-            className="px-3.5 py-2 rounded-none bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 border border-slate-700 transition-colors shadow-none cursor-pointer"
-            title="Imprimir Folha Diária de Presenças A4"
+            className={`px-3.5 py-2 rounded-none font-bold text-xs flex items-center gap-1.5 border transition-colors shadow-none cursor-pointer ${
+              isSigned
+                ? 'bg-slate-700 hover:bg-slate-800 text-white border-slate-700'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-500 border-slate-300'
+            }`}
+            title={
+              isSigned
+                ? 'Imprimir Folha Diária de Presenças A4'
+                : 'Impressão bloqueada até ser homologada pelo professor'
+            }
           >
-            <span className="material-symbols-outlined text-[17px]">print</span>
+            <span className="material-symbols-outlined text-[17px]">
+              {isSigned ? 'print' : 'lock'}
+            </span>
             <span>Imprimir</span>
           </button>
         </div>
@@ -517,18 +577,18 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse border border-slate-300 print:border-slate-400 print:text-[8.5pt]">
             <thead>
-              <tr className="bg-[#0b1f3a] text-white font-bold uppercase text-[10px] tracking-wider border-b border-slate-700 print:bg-gray-100 print:text-black print:border-black">
-                <th className="py-3 px-3 w-12 text-center border-r border-slate-700 print:border-black">N.º</th>
-                <th className="py-3 px-3 border-r border-slate-700 print:border-black">Aluno & Proc.</th>
-                <th className="py-3 px-3 text-center border-r border-slate-700 print:border-black">Estado de Assiduidade</th>
-                <th className="py-3 px-3 text-center border-r border-slate-700 print:border-black w-24">Hora/Entrada</th>
-                <th className="py-3 px-4 border-r border-slate-700 print:border-black">Observações / Justificação</th>
-                <th className="py-3 px-3 text-center w-28 print:border-black">Assiduidade Acumulada</th>
+              <tr className="bg-[#0b1f3a] text-white font-bold uppercase text-[10px] tracking-wider border-b-2 border-slate-900 print:bg-[#0b1f3a] print:text-white">
+                <th className="py-2.5 px-3 w-12 text-center border-r border-slate-700/80 print:border-slate-500">N.º</th>
+                <th className="py-2.5 px-3 border-r border-slate-700/80 print:border-slate-500">Aluno & Proc.</th>
+                <th className="py-2.5 px-3 text-center border-r border-slate-700/80 print:border-slate-500">Estado de Assiduidade</th>
+                <th className="py-2.5 px-3 text-center border-r border-slate-700/80 print:border-slate-500 w-24">Hora/Entrada</th>
+                <th className="py-2.5 px-4 border-r border-slate-700/80 print:border-slate-500">Observações / Justificação</th>
+                <th className="py-2.5 px-3 text-center w-28">Assiduidade Acumulada</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 print:divide-black">
+            <tbody className="divide-y divide-slate-200 print:divide-slate-300">
               {classStudents.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
@@ -540,11 +600,16 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
                   const rec = studentsAttendance[student.id] || { status: 'P', note: '', entryTime: '08:30' };
 
                   return (
-                    <tr key={student.id} className="hover:bg-slate-50 transition-colors print:hover:bg-transparent">
-                      <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-500 border-r border-slate-200 print:border-black">
+                    <tr
+                      key={student.id}
+                      className={`transition-colors border-b border-slate-200 print:border-slate-300 ${
+                        idx % 2 === 1 ? 'bg-[#f8fafc]' : 'bg-white'
+                      } hover:bg-sky-50/40`}
+                    >
+                      <td className="py-2 px-3 text-center font-mono font-bold text-slate-600 border-r border-slate-200 print:border-slate-300">
                         {String(idx + 1).padStart(2, '0')}
                       </td>
-                      <td className="py-2.5 px-3 border-r border-slate-200 print:border-black">
+                      <td className="py-2 px-3 border-r border-slate-200 print:border-slate-300">
                         <div className="flex items-center gap-2.5">
                           <img
                             src={student.avatar || 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150'}
@@ -557,7 +622,7 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
                           </div>
                         </div>
                       </td>
-                      <td className="py-2.5 px-3 border-r border-slate-200 print:border-black">
+                      <td className="py-2 px-3 border-r border-slate-200 print:border-slate-300">
                         {/* Screen Button Group */}
                         <div className="flex items-center justify-center gap-1 print:hidden">
                           {/* P */}
@@ -623,11 +688,11 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
                         </div>
                       </td>
 
-                      <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-600 border-r border-slate-200 print:border-black">
+                      <td className="py-2 px-3 text-center font-mono text-[11px] text-slate-600 border-r border-slate-200 print:border-slate-300">
                         {rec.entryTime || '—'}
                       </td>
 
-                      <td className="py-2.5 px-4 border-r border-slate-200 print:border-black">
+                      <td className="py-2 px-4 border-r border-slate-200 print:border-slate-300">
                         <input
                           type="text"
                           value={rec.note || ''}
@@ -637,7 +702,7 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
                         />
                       </td>
 
-                      <td className="py-2.5 px-3 text-center border-slate-200 print:border-black">
+                      <td className="py-2 px-3 text-center">
                         <div className="text-[11px]">
                           <span className="font-bold text-slate-800">{student.attendanceRate ?? 100}%</span>
                           <span className="text-[10px] text-slate-500 block font-mono">
@@ -847,7 +912,7 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
                   <div className="flex items-center gap-3 text-red-600 mb-3">
                     <span className="material-symbols-outlined text-[28px]">warning</span>
                     <h4 className="font-extrabold text-sm uppercase tracking-wider text-slate-900">
-                      Confirmar Eliminação Definitiva
+                      Eliminação
                     </h4>
                   </div>
                   <p className="text-xs text-slate-700 mb-4 leading-relaxed">
@@ -872,7 +937,7 @@ export const AssiduidadeView: React.FC<AssiduidadeViewProps> = ({
                       className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
                     >
                       <span className="material-symbols-outlined text-[16px]">delete_forever</span>
-                      <span>Sim, Eliminar Definitivamente</span>
+                      <span>Eliminar</span>
                     </button>
                   </div>
                 </div>

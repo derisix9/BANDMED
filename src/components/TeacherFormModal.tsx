@@ -203,7 +203,7 @@ export const TeacherFormModal: React.FC<TeacherFormModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-sm uppercase tracking-wider">
-                {editingTeacher ? 'Editar Ficha do Professor' : 'Ficha de Cadastro Oficial do Professor'}
+                {editingTeacher ? 'Editar Ficha do Professor' : 'Ficha de Cadastro de Professor'}
               </h3>
               <p className="text-[11px] text-blue-200">
                 Registo de identificação pessoal, vínculos académicos, dados bancários e distribuição

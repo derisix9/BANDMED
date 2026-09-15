@@ -13,6 +13,7 @@ interface MiniPautaTableProps {
   activeClass?: ClassRoom;
   activeSubject?: Subject;
   settings?: InstitutionSettings;
+  isReadOnly?: boolean;
 }
 
 export const MiniPautaTable: React.FC<MiniPautaTableProps> = ({
@@ -23,7 +24,8 @@ export const MiniPautaTable: React.FC<MiniPautaTableProps> = ({
   previewHiddenOnScreen,
   activeClass,
   activeSubject,
-  settings
+  settings,
+  isReadOnly = false
 }) => {
   // Sempre reflete os Dados da Instituição definidos em Configurações
   const institution = settings || dbService.getSettings();
@@ -98,6 +100,10 @@ export const MiniPautaTable: React.FC<MiniPautaTableProps> = ({
       );
     }
 
+    if (isReadOnly) {
+      return renderGradeValue(value, isDebtor, isDesistente);
+    }
+
     return (
       <>
         <input
@@ -145,86 +151,86 @@ export const MiniPautaTable: React.FC<MiniPautaTableProps> = ({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-center text-xs border-collapse print:text-[9px]">
+        <table className="w-full text-center text-xs border-collapse border border-slate-300 print:border-slate-400 print:text-[8pt]">
           {/* Header Rows */}
           <thead>
             {/* Top Tier Header */}
-            <tr className="bg-[#0b1f3a] text-white font-bold uppercase text-[11px] tracking-wider border-b border-slate-700/80 print:bg-slate-100 print:text-black print:border-black">
-              <th rowSpan={2} className="py-3 px-2 w-11 border-r border-slate-700/60 print:border-black text-center">
+            <tr className="bg-[#0b1f3a] text-white font-bold uppercase text-[11px] tracking-wider border-b border-slate-700/80 print:bg-[#0b1f3a] print:text-white">
+              <th rowSpan={2} className="py-2.5 px-2 w-10 border-r border-slate-600 print:border-slate-500 text-center">
                 N.º
               </th>
-              <th rowSpan={2} className="py-3 px-3 min-w-[210px] text-left border-r border-slate-700/60 print:border-black">
+              <th rowSpan={2} className="py-2.5 px-3 min-w-[170px] print:min-w-0 text-left border-r border-slate-600 print:border-slate-500">
                 NOME COMPLETO
               </th>
-              <th rowSpan={2} className="py-3 px-1.5 w-12 border-r border-slate-700/60 print:border-black text-center">
+              <th rowSpan={2} className="py-2.5 px-1.5 w-11 print:w-8 border-r border-slate-600 print:border-slate-500 text-center">
                 Sexo
               </th>
-              <th rowSpan={2} className="py-3 px-1.5 w-16 border-r border-slate-700/60 print:border-black text-center">
+              <th rowSpan={2} className="py-2.5 px-1.5 w-14 print:w-11 border-r border-slate-600 print:border-slate-500 text-center">
                 Ano Nasc.
               </th>
-              <th rowSpan={2} className="py-3 px-1.5 w-12 border-r border-slate-700/60 print:border-black text-center">
+              <th rowSpan={2} className="py-2.5 px-1.5 w-11 print:w-9 border-r border-slate-600 print:border-slate-500 text-center">
                 Idade
               </th>
 
               {/* Trimester 1 */}
               {t1Cols > 0 && (
-                <th colSpan={t1Cols} className="py-2.5 px-1 border-r border-slate-700/60 print:border-black bg-[#0d2647] text-amber-300 font-extrabold tracking-wider">
+                <th colSpan={t1Cols} className="py-2 px-1 border-r border-slate-600 print:border-slate-500 bg-[#0e2c53] text-amber-300 font-extrabold tracking-wider print:bg-[#0e2c53] print:text-amber-300">
                   I TRIMESTRE
                 </th>
               )}
 
               {/* Trimester 2 */}
               {t2Cols > 0 && (
-                <th colSpan={t2Cols} className="py-2.5 px-1 border-r border-slate-700/60 print:border-black bg-[#0b1f3a] text-amber-300 font-extrabold tracking-wider">
+                <th colSpan={t2Cols} className="py-2 px-1 border-r border-slate-600 print:border-slate-500 bg-[#143765] text-amber-300 font-extrabold tracking-wider print:bg-[#143765] print:text-amber-300">
                   II TRIMESTRE
                 </th>
               )}
 
               {/* Trimester 3 */}
               {t3Cols > 0 && (
-                <th colSpan={t3Cols} className="py-2.5 px-1 border-r border-slate-700/60 print:border-black bg-[#0d2647] text-amber-300 font-extrabold tracking-wider">
+                <th colSpan={t3Cols} className="py-2 px-1 border-r border-slate-600 print:border-slate-500 bg-[#1a4378] text-amber-300 font-extrabold tracking-wider print:bg-[#1a4378] print:text-amber-300">
                   III TRIMESTRE
                 </th>
               )}
 
               {/* Final Classification */}
               {finalCols > 0 && (
-                <th colSpan={finalCols} className="py-2.5 px-1 bg-[#13325c] text-white font-extrabold tracking-wider print:bg-slate-200 print:text-black">
+                <th colSpan={finalCols} className="py-2 px-1 bg-[#7a0c0c] text-white font-extrabold tracking-wider print:bg-[#7a0c0c] print:text-white">
                   CLASSIFICAÇÃO FINAL
                 </th>
               )}
             </tr>
 
             {/* Sub Tier Header */}
-            <tr className="bg-[#122c50] text-slate-200 font-bold uppercase text-[10px] tracking-wide border-b border-slate-700 print:bg-white print:text-black print:border-black">
+            <tr className="bg-[#122c50] text-slate-200 font-bold uppercase text-[10px] tracking-wide border-b border-slate-700 print:bg-[#122c50] print:text-slate-200">
               {/* T1 sub-columns */}
-              {showMAC && <th className="py-2 px-1 border-r border-slate-700/40 w-11 text-slate-300 print:text-black print:border-black">MAC</th>}
-              {showNPP && <th className="py-2 px-1 border-r border-slate-700/40 w-11 text-slate-300 print:text-black print:border-black">NPP</th>}
-              {showNPT && <th className="py-2 px-1 border-r border-slate-700/40 w-11 text-slate-300 print:text-black print:border-black">NPT</th>}
-              {showMT1 && <th className="py-2 px-1 border-r border-slate-700/80 w-12 bg-[#1a3d6f] text-amber-300 font-black print:border-black print:bg-slate-100 print:text-black">MT1</th>}
+              {showMAC && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-11 print:w-7 text-slate-200">MAC</th>}
+              {showNPP && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-11 print:w-7 text-slate-200">NPP</th>}
+              {showNPT && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-11 print:w-7 text-slate-200">NPT</th>}
+              {showMT1 && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-11 print:w-8 bg-[#09203d] text-amber-300 font-black print:bg-[#09203d] print:text-amber-300">MT1</th>}
 
               {/* T2 sub-columns */}
-              {showMAC && <th className="py-2 px-1 border-r border-slate-700/40 w-11 text-slate-300 print:text-black print:border-black">MAC</th>}
-              {showNPP && <th className="py-2 px-1 border-r border-slate-700/40 w-11 text-slate-300 print:text-black print:border-black">NPP</th>}
-              {showNPT && <th className="py-2 px-1 border-r border-slate-700/40 w-11 text-slate-300 print:text-black print:border-black">NPT</th>}
-              {showMT2 && <th className="py-2 px-1 border-r border-slate-700/80 w-12 bg-[#1a3d6f] text-amber-300 font-black print:border-black print:bg-slate-100 print:text-black">MT2</th>}
+              {showMAC && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-11 print:w-7 text-slate-200">MAC</th>}
+              {showNPP && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-11 print:w-7 text-slate-200">NPP</th>}
+              {showNPT && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-11 print:w-7 text-slate-200">NPT</th>}
+              {showMT2 && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-11 print:w-8 bg-[#0d284a] text-amber-300 font-black print:bg-[#0d284a] print:text-amber-300">MT2</th>}
 
               {/* T3 sub-columns */}
-              {showMAC && <th className="py-2 px-1 border-r border-slate-700/40 w-11 text-slate-300 print:text-black print:border-black">MAC</th>}
-              {showNPP && <th className="py-2 px-1 border-r border-slate-700/40 w-11 text-slate-300 print:text-black print:border-black">NPP</th>}
-              {showNPT && <th className="py-2 px-1 border-r border-slate-700/40 w-11 text-slate-300 print:text-black print:border-black">NPT</th>}
-              {showMT3 && <th className="py-2 px-1 border-r border-slate-700/80 w-12 bg-[#1a3d6f] text-amber-300 font-black print:border-black print:bg-slate-100 print:text-black">MT3</th>}
+              {showMAC && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-11 print:w-7 text-slate-200">MAC</th>}
+              {showNPP && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-11 print:w-7 text-slate-200">NPP</th>}
+              {showNPT && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-11 print:w-7 text-slate-200">NPT</th>}
+              {showMT3 && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-11 print:w-8 bg-[#123157] text-amber-300 font-black print:bg-[#123157] print:text-amber-300">MT3</th>}
 
               {/* Final sub-columns */}
-              {showMFD && <th className="py-2 px-1 border-r border-slate-700/80 w-12 bg-[#1a3d6f] text-amber-300 font-black print:border-black print:bg-slate-100 print:text-black">MFD</th>}
-              {showPG && <th className="py-2 px-1 border-r border-slate-700/40 w-11 text-slate-300 print:text-black print:border-black">PG</th>}
-              {showCA && <th className="py-2 px-1 border-r border-slate-700/40 w-10 text-rose-300 font-black print:text-red-600 print:border-black">CA</th>}
-              <th className="py-2 px-3 min-w-[100px] text-left text-slate-200 font-bold print:border-black print:text-black">Obs.</th>
+              {showMFD && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-11 print:w-8 bg-[#5c0909] text-amber-300 font-black print:bg-[#5c0909] print:text-amber-300">MFD</th>}
+              {showPG && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-11 print:w-7 text-slate-200">PG</th>}
+              {showCA && <th className="py-1.5 px-1 border-r border-slate-600 print:border-slate-500 w-10 print:w-7 text-rose-300 font-black">CA</th>}
+              <th className="py-1.5 px-2 min-w-[90px] print:min-w-0 text-left text-slate-200 font-bold">Obs.</th>
             </tr>
           </thead>
 
           {/* Table Body */}
-          <tbody className="divide-y divide-slate-200/80 print:divide-black">
+          <tbody className="divide-y divide-slate-200 print:divide-slate-300">
             {rows.map((row, idx) => {
               const isDesistente = row.isDesistente;
               const isDebtor = row.isDebtor;
@@ -232,137 +238,137 @@ export const MiniPautaTable: React.FC<MiniPautaTableProps> = ({
               return (
                 <tr
                   key={row.id || idx}
-                  className={`border-b border-slate-200/80 transition-colors print:border-black ${
+                  className={`border-b border-slate-200 print:border-slate-300 transition-colors ${
                     isDesistente
                       ? 'bg-slate-100/80 text-slate-400 italic print:bg-slate-100'
                       : idx % 2 === 1
-                      ? 'bg-slate-50/40 hover:bg-sky-50/30'
-                      : 'bg-white hover:bg-sky-50/30'
+                      ? 'bg-[#f8fafc] hover:bg-sky-50/40'
+                      : 'bg-white hover:bg-sky-50/40'
                   }`}
                 >
                   {/* N/O */}
-                  <td className="py-2 px-2 font-mono font-bold text-slate-600 border-r border-slate-200/80 print:border-black print:text-black text-center">
+                  <td className="py-1.5 px-2 font-mono font-bold text-slate-600 border-r border-slate-200 print:border-slate-300 print:text-black text-center">
                     {row.num}
                   </td>
 
-                  {/* NOME COMPLETO - Clean, without inline Devedor/Desistente badges as requested */}
-                  <td className="py-2 px-3 text-left border-r border-slate-200/80 print:border-black">
-                    <span className="font-semibold text-slate-900 tracking-tight text-xs print:text-black">
+                  {/* NOME COMPLETO */}
+                  <td className="py-1.5 px-3 text-left border-r border-slate-200 print:border-slate-300">
+                    <span className="font-semibold text-slate-900 tracking-tight text-xs print:text-[8pt] print:text-black">
                       {row?.name || 'Aluno'}
                     </span>
                   </td>
 
                   {/* Sexo */}
-                  <td className="py-2 px-1 font-bold text-slate-700 border-r border-slate-200/80 print:border-black print:text-black text-center">
+                  <td className="py-1.5 px-1 font-bold text-slate-700 border-r border-slate-200 print:border-slate-300 print:text-black text-center">
                     {row.gender}
                   </td>
 
                   {/* Ano Nasc. */}
-                  <td className="py-2 px-1 font-mono text-slate-600 border-r border-slate-200/80 print:border-black print:text-black text-center">
+                  <td className="py-1.5 px-1 font-mono text-slate-600 border-r border-slate-200 print:border-slate-300 print:text-black text-center">
                     {row.birthYear}
                   </td>
 
                   {/* Idade */}
-                  <td className="py-2 px-1 font-mono font-bold text-slate-700 border-r border-slate-200/80 print:border-black print:text-black text-center">
+                  <td className="py-1.5 px-1 font-mono font-bold text-slate-700 border-r border-slate-200 print:border-slate-300 print:text-black text-center">
                     {row.age}
                   </td>
 
                   {/* ============= TRIMESTRE 1 ============= */}
                   {showMAC && (
-                    <td className="py-1.5 px-1 border-r border-slate-200/80 print:border-black text-center">
+                    <td className="py-1 px-1 border-r border-slate-200 print:border-slate-300 text-center">
                       {renderEditableCell('mac1', row.mac1, idx, isDebtor, isDesistente)}
                     </td>
                   )}
 
                   {showNPP && (
-                    <td className="py-1.5 px-1 border-r border-slate-200/80 print:border-black text-center">
+                    <td className="py-1 px-1 border-r border-slate-200 print:border-slate-300 text-center">
                       {renderEditableCell('npp1', row.npp1, idx, isDebtor, isDesistente)}
                     </td>
                   )}
 
                   {showNPT && (
-                    <td className="py-1.5 px-1 border-r border-slate-200/80 print:border-black text-center">
+                    <td className="py-1 px-1 border-r border-slate-200 print:border-slate-300 text-center">
                       {renderEditableCell('npt1', row.npt1, idx, isDebtor, isDesistente)}
                     </td>
                   )}
 
                   {showMT1 && (
-                    <td className="py-2 px-1 border-r border-slate-200/80 bg-slate-100/60 font-mono font-bold print:border-black print:bg-slate-100 text-center">
+                    <td className="py-1.5 px-1 border-r border-slate-200 bg-blue-50/50 font-mono font-bold print:border-slate-300 print:bg-blue-50/50 text-center">
                       {renderGradeValue(row.mt1, isDebtor, isDesistente, true)}
                     </td>
                   )}
 
                   {/* ============= TRIMESTRE 2 ============= */}
                   {showMAC && (
-                    <td className="py-1.5 px-1 border-r border-slate-200/80 print:border-black text-center">
+                    <td className="py-1 px-1 border-r border-slate-200 print:border-slate-300 text-center">
                       {renderEditableCell('mac2', row.mac2, idx, isDebtor, isDesistente)}
                     </td>
                   )}
 
                   {showNPP && (
-                    <td className="py-1.5 px-1 border-r border-slate-200/80 print:border-black text-center">
+                    <td className="py-1 px-1 border-r border-slate-200 print:border-slate-300 text-center">
                       {renderEditableCell('npp2', row.npp2, idx, isDebtor, isDesistente)}
                     </td>
                   )}
 
                   {showNPT && (
-                    <td className="py-1.5 px-1 border-r border-slate-200/80 print:border-black text-center">
+                    <td className="py-1 px-1 border-r border-slate-200 print:border-slate-300 text-center">
                       {renderEditableCell('npt2', row.npt2, idx, isDebtor, isDesistente)}
                     </td>
                   )}
 
                   {showMT2 && (
-                    <td className="py-2 px-1 border-r border-slate-200/80 bg-slate-100/60 font-mono font-bold print:border-black print:bg-slate-100 text-center">
+                    <td className="py-1.5 px-1 border-r border-slate-200 bg-blue-50/50 font-mono font-bold print:border-slate-300 print:bg-blue-50/50 text-center">
                       {renderGradeValue(row.mt2, isDebtor, isDesistente, true)}
                     </td>
                   )}
 
                   {/* ============= TRIMESTRE 3 ============= */}
                   {showMAC && (
-                    <td className="py-1.5 px-1 border-r border-slate-200/80 print:border-black text-center">
+                    <td className="py-1 px-1 border-r border-slate-200 print:border-slate-300 text-center">
                       {renderEditableCell('mac3', row.mac3, idx, isDebtor, isDesistente)}
                     </td>
                   )}
 
                   {showNPP && (
-                    <td className="py-1.5 px-1 border-r border-slate-200/80 print:border-black text-center">
+                    <td className="py-1 px-1 border-r border-slate-200 print:border-slate-300 text-center">
                       {renderEditableCell('npp3', row.npp3, idx, isDebtor, isDesistente)}
                     </td>
                   )}
 
                   {showNPT && (
-                    <td className="py-1.5 px-1 border-r border-slate-200/80 print:border-black text-center">
+                    <td className="py-1 px-1 border-r border-slate-200 print:border-slate-300 text-center">
                       {renderEditableCell('npt3', row.npt3, idx, isDebtor, isDesistente)}
                     </td>
                   )}
 
                   {showMT3 && (
-                    <td className="py-2 px-1 border-r border-slate-200/80 bg-slate-100/60 font-mono font-bold print:border-black print:bg-slate-100 text-center">
+                    <td className="py-1.5 px-1 border-r border-slate-200 bg-blue-50/50 font-mono font-bold print:border-slate-300 print:bg-blue-50/50 text-center">
                       {renderGradeValue(row.mt3, isDebtor, isDesistente, true)}
                     </td>
                   )}
 
                   {/* ============= CLASSIFICAÇÃO FINAL ============= */}
                   {showMFD && (
-                    <td className="py-2 px-1 border-r border-slate-200/80 bg-amber-50/50 font-mono font-black print:border-black print:bg-slate-200 text-center">
+                    <td className="py-1.5 px-1 border-r border-slate-200 bg-rose-50/60 font-mono font-black print:border-slate-300 print:bg-rose-50/60 text-center">
                       {renderGradeValue(row.mfd, isDebtor, isDesistente, true)}
                     </td>
                   )}
 
                   {showPG && (
-                    <td className="py-1.5 px-1 border-r border-slate-200/80 print:border-black text-center">
+                    <td className="py-1 px-1 border-r border-slate-200 print:border-slate-300 text-center">
                       {renderEditableCell('pg', row.pg, idx, isDebtor, isDesistente)}
                     </td>
                   )}
 
                   {showCA && (
-                    <td className="py-2 px-1 border-r border-slate-200/80 font-bold print:border-black text-center">
+                    <td className="py-1.5 px-1 border-r border-slate-200 font-bold print:border-slate-300 text-center">
                       {renderGradeValue(row.ca, isDebtor, isDesistente, true)}
                     </td>
                   )}
 
                   {/* Obs. */}
-                  <td className="py-2 px-3 text-left print:border-black">
+                  <td className="py-1.5 px-2 text-left print:border-slate-300">
                     {isDesistente ? (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200 inline-block">
                         Desistente
@@ -423,7 +429,7 @@ export const MiniPautaTable: React.FC<MiniPautaTableProps> = ({
               O Director Pedagógico
             </span>
             <span className="text-slate-600 print:text-black text-xs">
-              Dr. Afonso Henriques
+              {institution?.directorPedagogico || institution?.directorGeral || 'Director Pedagógico'}
             </span>
           </div>
         </div>

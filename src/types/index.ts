@@ -90,6 +90,8 @@ export interface Student {
     maxScore: number;
   }[];
   trimesterGrades?: StudentTrimesterRecord[];
+  boletimEnviadoAoEncarregado?: boolean;
+  boletimEnviadoEm?: string;
 }
 
 export interface StudentTrimesterRecord {

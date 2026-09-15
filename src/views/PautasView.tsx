@@ -38,7 +38,37 @@ export const PautasView: React.FC<PautasViewProps> = ({ db, currentUserRole, cur
     availableSubjects[0]?.id ? String(availableSubjects[0].id) : (db.subjects[0]?.id ? String(db.subjects[0].id) : '')
   );
 
-  const [isDirectorSigned, setIsDirectorSigned] = useState<boolean>(false);
+  const [isDirectorSigned, setIsDirectorSigned] = useState<boolean>(
+    () => !!db.pauta?.isDirectorSigned || db.pauta?.status === 'homologada'
+  );
+
+  useEffect(() => {
+    if (db.pauta?.isDirectorSigned || db.pauta?.status === 'homologada') {
+      setIsDirectorSigned(true);
+    }
+  }, [db.pauta?.isDirectorSigned, db.pauta?.status]);
+
+  // Current academic year from institution settings
+  const currentAcademicYear = db.settings?.currentAcademicYear || '2024/2025';
+
+  // Print guard: "sem uma pauta ou mini pauta ser homologada não pode ser impressão"
+  const handlePrintDocument = async () => {
+    const isHomologada = isDirectorSigned || db.pauta?.status === 'homologada';
+    if (!isHomologada) {
+      await runGlobalOperation(
+        async () => {
+          throw new Error('Sem uma pauta ou mini pauta ser homologada não pode ser impressa.');
+        },
+        {
+          loadingMessage: 'A verificar homologação pedagógica...',
+          errorMessage: 'Impressão Bloqueada',
+          errorDetails: 'Sem a homologação da Direção Pedagógica, a pauta ou mini-pauta não possui validade oficial para ser emitida ou impressa.'
+        }
+      );
+      return;
+    }
+    window.print();
+  };
 
   // Filter for Grade Types (MT1, MT2, MT3, MFD, MF, MAC, NPP, NPT, PG, CA)
   const [selectedGradeTypes, setSelectedGradeTypes] = useState<Set<GradeTypeKey>>(
@@ -48,8 +78,8 @@ export const PautasView: React.FC<PautasViewProps> = ({ db, currentUserRole, cur
   // Financial Compliance: Hide debtor grades on print option
   const [hideDebtorGrades, setHideDebtorGrades] = useState<boolean>(true);
   const [previewHiddenOnScreen, setPreviewHiddenOnScreen] = useState<boolean>(false);
-
-  // Fallback defaults if institution has no classes or subjects yet
+ 
+ // Fallback defaults if institution has no classes or subjects yet
   const fallbackClass: ClassRoom = useMemo(() => ({
     id: 'turma-padrao',
     name: '10.ª Classe • Turma A',
@@ -74,7 +104,6 @@ export const PautasView: React.FC<PautasViewProps> = ({ db, currentUserRole, cur
     weeklyHours: 4,
     area: 'Tronco Comum'
   }), []);
-
   // Ensure selectedClassId is valid
   useEffect(() => {
     if (db.classes && db.classes.length > 0 && !db.classes.some((c) => String(c.id) === String(selectedClassId))) {
@@ -91,6 +120,11 @@ export const PautasView: React.FC<PautasViewProps> = ({ db, currentUserRole, cur
 
   const activeClass = (db.classes || []).find((c) => String(c.id) === String(selectedClassId)) || db.classes?.[0] || fallbackClass;
   const activeSubject = (db.subjects || []).find((s) => String(s.id) === String(selectedSubjectId)) || availableSubjects?.[0] || db.subjects?.[0] || fallbackSubject;
+
+  const isPreviousAcademicYear = activeClass?.academicYear ? activeClass.academicYear !== currentAcademicYear : false;
+  const isTeacherReadOnly = currentUserRole === 'professor' && isPreviousAcademicYear;
+  const isSecretaria = currentUserRole === 'secretaria';
+  const isReadOnlyMode = isTeacherReadOnly || isSecretaria;
 
   // Students belonging strictly to the selected class
   const classStudents = useMemo(() => {
@@ -301,7 +335,15 @@ export const PautasView: React.FC<PautasViewProps> = ({ db, currentUserRole, cur
   const resourceCount = validMfds.filter((score) => score < 10).length;
 
   return (
-    <div className="flex flex-col w-full gap-5 pb-16 printable-document">
+    <div className="flex flex-col w-full gap-5 pb-16 printable-document printable-landscape">
+      <style>{`
+        @media print {
+          @page {
+            size: A4 landscape !important;
+            margin: 4mm 5mm !important;
+          }
+        }
+      `}</style>
       {/* Action Header & Tabs Navigation */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 no-print print:hidden">
         <div>
@@ -323,55 +365,108 @@ export const PautasView: React.FC<PautasViewProps> = ({ db, currentUserRole, cur
 
         {/* Global Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Print Button */}
+          {/* Print Button - Blocked if not homologated */}
           <button
-            onClick={() => window.print()}
-            className="px-4 py-2.5 rounded-xl bg-[#0b1f3a] hover:bg-[#122c50] text-white font-bold text-xs flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+            onClick={handlePrintDocument}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs transition-all cursor-pointer ${
+              isDirectorSigned || db.pauta?.status === 'homologada'
+                ? 'bg-[#0b1f3a] hover:bg-[#122c50] text-white'
+                : 'bg-slate-200 hover:bg-slate-300 text-slate-600'
+            }`}
+            title={
+              isDirectorSigned || db.pauta?.status === 'homologada'
+                ? 'Imprimir documento pedagógico oficial'
+                : 'A impressão só é permitida após homologação pela Direção Pedagógica'
+            }
           >
-            <span className="material-symbols-outlined text-[18px] text-amber-400">print</span>
-            <span>{activeTab === 'minipauta' ? 'Imprimir' : 'Imprimir'}</span>
+            <span className="material-symbols-outlined text-[18px] text-amber-400">
+              {isDirectorSigned || db.pauta?.status === 'homologada' ? 'print' : 'lock'}
+            </span>
+            <span>Imprimir</span>
+            {(!isDirectorSigned && db.pauta?.status !== 'homologada') && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">
+                Requer Homologação
+              </span>
+            )}
           </button>
 
-          {/* Save & Sync Button */}
-          <button
-            onClick={async () => {
-              await runGlobalOperation(
-                async () => {
-                  dbService.saveMiniPautaRows(selectedClassId, selectedSubjectId, miniPautaRows, currentUser?.name);
-                  await dbService.pushToCloudStorage();
-                },
-                {
-                  loadingMessage: 'A gravar notas e a sincronizar na base de dados...',
-                  successMessage: 'Pauta e notas gravadas com sucesso na base de dados!'
-                }
-              );
-            }}
-            className="px-3.5 py-2 rounded-xl bg-[#0b1f3a] hover:bg-[#122c50] text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[18px]">cloud_sync</span>
-            <span>Gravar & Sincronizar</span>
-          </button>
-
-          {/* Homologate Button for Admin */}
-          {currentUserRole === 'admin' && (
+          {/* Save & Sync Button - Hidden for Secretaria */}
+          {!isSecretaria && (
             <button
               onClick={async () => {
+                if (isTeacherReadOnly) {
+                  await runGlobalOperation(
+                    async () => {
+                      throw new Error('Os professores não podem alterar notas de mini pautas de anos lectivos anteriores.');
+                    },
+                    {
+                      loadingMessage: 'A verificar permissão lectiva...',
+                      errorMessage: 'Ano Lectivo Anterior Bloqueado',
+                      errorDetails: 'Apenas é permitido o lançamento e alteração de notas para o ano lectivo corrente em curso.'
+                    }
+                  );
+                  return;
+                }
+
                 await runGlobalOperation(
                   async () => {
-                    setIsDirectorSigned(true);
-                    dbService.homologatePauta('Dr. Afonso Henriques', '901923');
+                    dbService.saveMiniPautaRows(selectedClassId, selectedSubjectId, miniPautaRows, currentUser?.name);
+                    await dbService.pushToCloudStorage();
                   },
                   {
-                    loadingMessage: 'A homologar pauta pedagógica...',
-                    successMessage: 'Pauta homologada pela Direção Pedagógica!'
+                    loadingMessage: 'A gravar notas e a sincronizar na base de dados...',
+                    successMessage: 'Pauta e notas gravadas com sucesso na base de dados!'
                   }
                 );
               }}
-              className="px-3.5 py-2 rounded-xl bg-[#7a0c0c] hover:bg-[#8f1010] text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-colors"
+              disabled={isTeacherReadOnly}
+              className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-colors ${
+                isTeacherReadOnly
+                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                  : 'bg-[#0b1f3a] hover:bg-[#122c50] text-white cursor-pointer'
+              }`}
+              title={isTeacherReadOnly ? 'Bloqueado para anos lectivos anteriores' : 'Gravar notas na base de dados'}
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                {isTeacherReadOnly ? 'lock' : 'cloud_sync'}
+              </span>
+              <span>Enviar</span>
+            </button>
+          )}
+
+          {/* Homologate Button for Admin and Direção Pedagógica (Secretaria cannot homologate) */}
+          {(currentUserRole === 'admin' || currentUserRole === 'director') && !isSecretaria && (
+            <button
+              onClick={async () => {
+                const directorName = db.settings?.directorPedagogico || db.settings?.directorGeral || 'Director Pedagógico';
+                const directorUser = db.users?.find(u => u.name?.toLowerCase() === directorName.toLowerCase());
+                const agentNumber = directorUser?.processNumber || 'PED-01';
+
+                await runGlobalOperation(
+                  async () => {
+                    setIsDirectorSigned(true);
+                    dbService.homologatePauta(directorName, agentNumber);
+                    await dbService.pushToCloudStorage();
+                  },
+                  {
+                    loadingMessage: `A homologar com ${directorName}...`,
+                    successMessage: `Pauta homologada pela Direção Pedagógica (${directorName})!`
+                  }
+                );
+              }}
+              className="px-3.5 py-2 rounded-xl bg-[#7a0c0c] hover:bg-[#8f1010] text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">verified</span>
               <span>{isDirectorSigned ? 'Homologada' : 'Homologar'}</span>
             </button>
+          )}
+
+          {/* Secretaria Info Badge */}
+          {isSecretaria && (
+            <span className="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-900 border border-blue-200 text-xs font-bold flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[16px] text-blue-600">visibility</span>
+              <span>Consulta & Impressão Oficial</span>
+            </span>
           )}
         </div>
       </div>
@@ -465,36 +560,36 @@ export const PautasView: React.FC<PautasViewProps> = ({ db, currentUserRole, cur
 
         <div>
           <label className="block uppercase font-bold text-slate-500 mb-1">Ano Lectivo / Regime</label>
-          <div className="relative">
-            <select
-              value={activeClass?.academicYear || db.settings?.currentAcademicYear || ''}
-              onChange={(e) => {
-                dbService.setAcademicYear(e.target.value);
-              }}
-              className="w-full h-9 px-3 pr-7 rounded-lg bg-slate-100 font-bold text-slate-700 focus:bg-white focus:ring-1 focus:ring-[#0b1f3a] text-xs cursor-pointer truncate"
-              title="Ano Lectivo e Regime vigentes"
-            >
-              {Array.from(
-                new Set(
-                  [
-                    activeClass?.academicYear,
-                    db.settings?.currentAcademicYear,
-                    ...(db.settings?.availableAcademicYears || [])
-                  ].filter(Boolean)
-                )
-              ).map((yr) => (
-                <option key={yr as string} value={yr as string}>
-                  {yr as string} • {activeClass?.shift ? `Presencial (${activeClass.shift})` : 'Presencial'}
-                </option>
-              ))}
-            </select>
-            <span
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-500 pointer-events-none"
-              title="Ano letivo ativo"
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              readOnly
+              value={`${db.settings?.currentAcademicYear || '2024/2025'}${activeClass?.shift ? ` • Presencial (${activeClass.shift})` : ' • Presencial'}`}
+              className="w-full h-9 px-3 pr-8 rounded-lg bg-slate-100 font-bold text-slate-700 text-xs border border-slate-200 cursor-default truncate select-none shadow-2xs"
+              title="Ano Lectivo corrente em curso definido nas configurações da instituição"
             />
+            <div className="absolute right-2.5 flex items-center gap-1.5 pointer-events-none">
+              <span
+                className="w-2 h-2 rounded-full bg-emerald-500"
+                title="Ano letivo corrente ativo"
+              />
+              <span className="material-symbols-outlined text-slate-400 text-[14px]">
+                lock
+              </span>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Warning if teacher is viewing a previous academic year class */}
+      {isTeacherReadOnly && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center gap-2 text-amber-900 text-xs font-medium no-print print:hidden">
+          <span className="material-symbols-outlined text-amber-600 text-[18px]">lock</span>
+          <span>
+            <strong>Modo Somente Leitura:</strong> Esta turma pertence ao ano lectivo anterior ({activeClass?.academicYear}). Os professores estão impossibilitados de alterar notas de mini pautas de anos anteriores.
+          </span>
+        </div>
+      )}
 
       {/* KPI Stats Strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center no-print print:hidden">
@@ -556,6 +651,7 @@ export const PautasView: React.FC<PautasViewProps> = ({ db, currentUserRole, cur
           activeClass={activeClass}
           activeSubject={activeSubject}
           settings={db.settings}
+          isReadOnly={isReadOnlyMode}
         />
       )}
 

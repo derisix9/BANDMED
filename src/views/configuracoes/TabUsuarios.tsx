@@ -49,7 +49,7 @@ const emptyForm = (): UserFormState => ({
   username: '',
   password: '',
   phone: '',
-  role: 'secretaria',
+  role: 'director',
   avatar: DEFAULT_AVATARS[0]
 });
 
@@ -60,6 +60,8 @@ export const TabUsuarios: React.FC<TabUsuariosProps> = ({ settings, currentUserR
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const canManageUsers = currentUserRole === 'admin';
 
   useEffect(() => {
     const unsubscribe = dbService.subscribe((db) => {
@@ -226,14 +228,21 @@ export const TabUsuarios: React.FC<TabUsuariosProps> = ({ settings, currentUserR
             <span className="material-symbols-outlined text-[16px]">groups</span>
             <span>{users.length} Utilizador(es) Registado(s)</span>
           </span>
-          <button
-            type="button"
-            onClick={openAddModal}
-            className="px-3.5 py-2 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[16px]">add</span>
-            <span>Criar Novo Utilizador</span>
-          </button>
+          {canManageUsers ? (
+            <button
+              type="button"
+              onClick={openAddModal}
+              className="px-3.5 py-2 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">add</span>
+              <span>CADASTRAR</span>
+            </button>
+          ) : (
+            <span className="px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold rounded-xl flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-[16px] text-amber-600">lock</span>
+              <span>Apenas Administrador pode criar e gerir contas</span>
+            </span>
+          )}
         </div>
       </div>
 
@@ -268,7 +277,6 @@ export const TabUsuarios: React.FC<TabUsuariosProps> = ({ settings, currentUserR
                 </tr>
               )}
               {users.map((user) => {
-                const roleDef = roleDefFor(user.role);
                 return (
                   <tr key={user.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3 px-4">
@@ -290,29 +298,33 @@ export const TabUsuarios: React.FC<TabUsuariosProps> = ({ settings, currentUserR
                     </td>
                     <td className="py-3 px-4">
                       <span className="px-2 py-0.5 rounded bg-slate-100 font-bold text-slate-700 text-[11px]">
-                        {roleDef?.name || ROLE_LABELS[user.role]}
+                        {ROLE_LABELS[user.role] || user.roleTitle || user.role}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-slate-500">{user.phone || '—'}</td>
                     <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(user)}
-                          className="text-[#0b1f3a] hover:text-[#ac332b] font-bold p-1 cursor-pointer"
-                          title="Editar utilizador"
-                        >
-                          <span className="material-symbols-outlined text-[17px]">edit</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setUserToDelete(user)}
-                          className="text-slate-400 hover:text-red-600 font-bold p-1 cursor-pointer"
-                          title="Eliminar utilizador"
-                        >
-                          <span className="material-symbols-outlined text-[17px]">delete</span>
-                        </button>
-                      </div>
+                      {canManageUsers ? (
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(user)}
+                            className="text-[#0b1f3a] hover:text-[#ac332b] font-bold p-1 cursor-pointer"
+                            title="Editar utilizador"
+                          >
+                            <span className="material-symbols-outlined text-[17px]">edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setUserToDelete(user)}
+                            className="text-slate-400 hover:text-red-600 font-bold p-1 cursor-pointer"
+                            title="Eliminar utilizador"
+                          >
+                            <span className="material-symbols-outlined text-[17px]">delete</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 font-medium">Apenas Leitura</span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -441,7 +453,7 @@ export const TabUsuarios: React.FC<TabUsuariosProps> = ({ settings, currentUserR
                 >
                   {ROLE_ORDER.map((role) => (
                     <option key={role} value={role}>
-                      {roleDefFor(role)?.name || ROLE_LABELS[role]}
+                      {ROLE_LABELS[role]}
                     </option>
                   ))}
                 </select>
@@ -497,7 +509,7 @@ export const TabUsuarios: React.FC<TabUsuariosProps> = ({ settings, currentUserR
                 className="px-5 py-2.5 rounded-none bg-[#b91c1c] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-none border-none"
               >
                 <span className="material-symbols-outlined text-[16px]">delete</span>
-                <span>Sim, Eliminar Utilizador</span>
+                <span>Eliminar</span>
               </button>
             </div>
           </div>

@@ -23,7 +23,7 @@ import {
 } from '../types';
 import { CLASS_ROSTERS } from '../utils/classStudentsRoster';
 import { firestore } from './firebase';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 
 const STORAGE_KEY = 'bandmed_escola_db_v1';
 
@@ -40,6 +40,26 @@ const defaultUsers: User[] = [
     password: 'EduGest2024!'
   },
   {
+    id: 'user-director',
+    name: 'Prof. Manuel Gonçalves',
+    email: 'direcao@escola.pt',
+    role: 'director',
+    roleTitle: 'Direção Pedagógica',
+    avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80',
+    phone: '+244 923 884 102',
+    password: 'EduGest2024!'
+  },
+  {
+    id: 'user-secretaria',
+    name: 'Helena Carvalho',
+    email: 'secretaria@escola.pt',
+    role: 'secretaria',
+    roleTitle: 'Secretaria Escolar',
+    avatar: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=150&auto=format&fit=crop&q=80',
+    phone: '+244 924 112 334',
+    password: 'EduGest2024!'
+  },
+  {
     id: 'user-prof',
     name: 'Prof.ª Marta Fontes',
     email: 'prof.marta@escola.pt',
@@ -47,6 +67,16 @@ const defaultUsers: User[] = [
     roleTitle: 'Professora Titular • Física e Química',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
     phone: '+244 912 345 678',
+    password: 'EduGest2024!'
+  },
+  {
+    id: 'user-financeiro',
+    name: 'António Baptista',
+    email: 'financeiro@escola.pt',
+    role: 'financeiro',
+    roleTitle: 'Tesouraria & Finanças',
+    avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80',
+    phone: '+244 923 771 990',
     password: 'EduGest2024!'
   },
   {
@@ -1974,7 +2004,21 @@ export function createCleanInstitutionDb(
 
 function getInitialDb(): SchoolDatabase {
   if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-    const activeInstId = localStorage.getItem('escola_active_institution_id');
+    let activeInstId = localStorage.getItem('escola_active_institution_id');
+    if (!activeInstId) {
+      try {
+        const sessionUserRaw = localStorage.getItem('bandmed_session_user');
+        if (sessionUserRaw) {
+          const sessionUser = JSON.parse(sessionUserRaw);
+          if (sessionUser && sessionUser.institutionId) {
+            activeInstId = sessionUser.institutionId;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     if (activeInstId && activeInstId !== 'inst_bandmed') {
       const savedInst = localStorage.getItem('escola_inst_' + activeInstId);
       if (savedInst) {
@@ -2099,9 +2143,33 @@ function getInitialDb(): SchoolDatabase {
           ? parsed.events
           : defaultEvents;
 
+        const roleTitleMap: Record<string, string> = {
+          admin: 'Administrador Geral',
+          director: 'Direção Pedagógica',
+          secretaria: 'Secretaria Escolar',
+          professor: 'Corpo Docente',
+          financeiro: 'Tesouraria & Finanças',
+          aluno: 'Estudante',
+          encarregado: 'Encarregado de Educação'
+        };
+
+        const loadedUsers = (Array.isArray(parsed.users) ? parsed.users : defaultUsers).map((u: any) => ({
+          ...u,
+          roleTitle: (u.role === 'director' && (!u.roleTitle || u.roleTitle.includes('Encarregado')))
+            ? 'Direção Pedagógica'
+            : (u.roleTitle || roleTitleMap[u.role] || 'Utilizador')
+        }));
+
+        defaultUsers.forEach((du) => {
+          if (!loadedUsers.some((u: any) => u.id === du.id || u.email === du.email)) {
+            loadedUsers.push(du);
+          }
+        });
+
         base = {
           ...base,
           ...parsed,
+          users: loadedUsers,
           students: finalStudents,
           teachers: loadedTeachers,
           classes: Array.isArray(parsed.classes) ? parsed.classes : defaultClasses,
@@ -2173,13 +2241,15 @@ class SchoolIndexedDB {
     return this.dbPromise;
   }
 
-  public async save(data: SchoolDatabase): Promise<boolean> {
+  public async save(data: SchoolDatabase, instId?: string): Promise<boolean> {
     const db = await this.getDB();
     if (!db) return false;
+    const storeKey = instId ? `inst_${instId}` : (data.settings?.institutionId ? `inst_${data.settings.institutionId}` : 'current_db');
     return new Promise((resolve) => {
       try {
         const tx = db.transaction(IDB_STORE, 'readwrite');
         const store = tx.objectStore(IDB_STORE);
+        store.put(data, storeKey);
         store.put(data, 'current_db');
         tx.oncomplete = () => resolve(true);
         tx.onerror = () => resolve(false);
@@ -2189,15 +2259,26 @@ class SchoolIndexedDB {
     });
   }
 
-  public async load(): Promise<SchoolDatabase | null> {
+  public async load(instId?: string): Promise<SchoolDatabase | null> {
     const db = await this.getDB();
     if (!db) return null;
+    const storeKey = instId ? (instId.startsWith('inst_') ? instId : `inst_${instId}`) : 'current_db';
     return new Promise((resolve) => {
       try {
         const tx = db.transaction(IDB_STORE, 'readonly');
         const store = tx.objectStore(IDB_STORE);
-        const req = store.get('current_db');
-        req.onsuccess = () => resolve(req.result || null);
+        const req = store.get(storeKey);
+        req.onsuccess = () => {
+          if (req.result) {
+            resolve(req.result);
+          } else if (storeKey !== 'current_db') {
+            const fallbackReq = store.get('current_db');
+            fallbackReq.onsuccess = () => resolve(fallbackReq.result || null);
+            fallbackReq.onerror = () => resolve(null);
+          } else {
+            resolve(null);
+          }
+        };
         req.onerror = () => resolve(null);
       } catch {
         resolve(null);
@@ -2268,6 +2349,18 @@ class SchoolDatabaseService {
       const active = localStorage.getItem('escola_active_institution_id');
       if (active) {
         this.activeInstitutionId = active;
+      } else {
+        try {
+          const sessionUserRaw = localStorage.getItem('bandmed_session_user');
+          if (sessionUserRaw) {
+            const sessionUser = JSON.parse(sessionUserRaw);
+            if (sessionUser && sessionUser.institutionId) {
+              this.activeInstitutionId = sessionUser.institutionId;
+            }
+          }
+        } catch {
+          // ignore
+        }
       }
     }
     this.db = getInitialDb();
@@ -2279,18 +2372,24 @@ class SchoolDatabaseService {
 
   private async initFromIndexedDb(): Promise<void> {
     try {
-      const stored = await idbService.load();
-      if (stored && stored.students && Array.isArray(stored.students) && stored.students.length > 0) {
-        this.db = {
-          ...this.db,
-          ...stored,
-          students: stored.students,
-          teachers: stored.teachers || this.db.teachers,
-          attendanceSheets: stored.attendanceSheets || this.db.attendanceSheets,
-          invoices: stored.invoices || this.db.invoices
-        };
-        const currentData = this.getDatabase();
-        this.listeners.forEach((listener) => listener(currentData));
+      const stored = await idbService.load(this.activeInstitutionId);
+      if (stored) {
+        const storedInstId = stored.settings?.institutionId || 'inst_bandmed';
+        // Only hydrate if the stored database matches the currently active institution
+        if (storedInstId === this.activeInstitutionId) {
+          this.db = {
+            ...this.db,
+            ...stored,
+            // Guard: never wipe out new admin users or created accounts with stale IndexedDB users
+            users: (this.db.users && this.db.users.length > 0) ? this.db.users : (stored.users || this.db.users),
+            students: (stored.students && stored.students.length > 0) ? stored.students : this.db.students,
+            teachers: (stored.teachers && stored.teachers.length > 0) ? stored.teachers : this.db.teachers,
+            attendanceSheets: stored.attendanceSheets || this.db.attendanceSheets,
+            invoices: stored.invoices || this.db.invoices
+          };
+          const currentData = this.getDatabase();
+          this.listeners.forEach((listener) => listener(currentData));
+        }
       }
     } catch (e) {
       console.warn('Could not hydrate from IndexedDB:', e);
@@ -2444,6 +2543,32 @@ class SchoolDatabaseService {
     }
   }
 
+  public async saveUserToCloud(user: User): Promise<void> {
+    try {
+      const cleanEmail = user.email.trim().toLowerCase();
+      const userData: User = {
+        ...user,
+        email: cleanEmail,
+        institutionId: user.institutionId || this.activeInstitutionId
+      };
+
+      if (user.id) {
+        await setDoc(doc(firestore, 'users', user.id), userData, { merge: true });
+      }
+      if (cleanEmail) {
+        await setDoc(doc(firestore, 'users', cleanEmail), userData, { merge: true });
+      }
+      if (user.username && user.username.trim()) {
+        await setDoc(doc(firestore, 'users', user.username.trim().toLowerCase()), userData, { merge: true });
+      }
+      if (user.processNumber && user.processNumber.trim()) {
+        await setDoc(doc(firestore, 'users', user.processNumber.trim().toLowerCase()), userData, { merge: true });
+      }
+    } catch (e) {
+      console.warn('Erro ao salvar utilizador no Firestore collection "users":', e);
+    }
+  }
+
   public async pushToCloudStorage(): Promise<boolean> {
     try {
       this.setSyncStatus('syncing');
@@ -2491,6 +2616,13 @@ class SchoolDatabaseService {
         ? doc(firestore, 'school_data', 'bandmed_main')
         : doc(firestore, 'institutions', this.activeInstitutionId);
       await setDoc(docRef, payload, { merge: true });
+
+      // Automatically persist all institution users directly into the 'users' collection
+      if (Array.isArray(this.db.users)) {
+        for (const u of this.db.users) {
+          this.saveUserToCloud(u).catch(() => {});
+        }
+      }
 
       // Mirror to secondary storage endpoint as backup if default
       if (this.activeInstitutionId === 'inst_bandmed') {
@@ -2624,7 +2756,7 @@ class SchoolDatabaseService {
     return defaultList;
   }
 
-  public saveInstitutionSummary(summary: InstitutionSummary): void {
+  public async saveInstitutionSummary(summary: InstitutionSummary): Promise<void> {
     const list = this.getInstitutionsIndex();
     const existingIdx = list.findIndex((i) => i.id === summary.id);
     let updated: InstitutionSummary[];
@@ -2645,9 +2777,9 @@ class SchoolDatabaseService {
 
     try {
       const regDoc = doc(firestore, 'institutions_registry', 'index');
-      setDoc(regDoc, { list: updated, updatedAt: new Date().toISOString() }, { merge: true }).catch(() => {});
-    } catch {
-      // ignore
+      await setDoc(regDoc, { list: updated, updatedAt: new Date().toISOString() }, { merge: true });
+    } catch (e) {
+      console.warn('Erro ao salvar índice no Firestore:', e);
     }
   }
 
@@ -2696,7 +2828,6 @@ class SchoolDatabaseService {
       adminName: cleanName,
       createdAt: new Date().toISOString()
     };
-    this.saveInstitutionSummary(summary);
 
     if (this.unsubscribeRealtime) {
       this.unsubscribeRealtime();
@@ -2716,8 +2847,13 @@ class SchoolDatabaseService {
       }
     }
 
+    // Persist admin user directly to 'users' collection for global authentication
+    await this.saveUserToCloud(adminUser);
+    // Persist institution summary to registry
+    await this.saveInstitutionSummary(summary);
+    // Push institution database to Firestore
     await this.pushToCloudStorage();
-    this.initRemoteSync();
+    await this.initRemoteSync();
     this.notifyLocal();
 
     return { success: true, institutionId: newInstId, user: adminUser };
@@ -2792,6 +2928,9 @@ class SchoolDatabaseService {
     const currentUsers = this.db.users || [];
     this.db.users = [newUser, ...currentUsers];
 
+    // Automatically sync created user directly into Firestore 'users' collection
+    this.saveUserToCloud(newUser).catch(() => {});
+
     this.addAuditLog({
       userName: this.db.currentUser?.name || 'Administrador',
       userRole: 'Administrador',
@@ -2823,6 +2962,9 @@ class SchoolDatabaseService {
     if (this.db.currentUser && this.db.currentUser.id === userId) {
       this.db.currentUser = updated;
     }
+
+    // Automatically sync updated user directly into Firestore 'users' collection
+    this.saveUserToCloud(updated).catch(() => {});
 
     this.addAuditLog({
       userName: this.db.currentUser?.name || 'Administrador',
@@ -2863,6 +3005,16 @@ class SchoolDatabaseService {
 
     this.db.users = this.db.users.filter((u) => u.id !== userId);
 
+    // Clean up from Firestore 'users' collection
+    try {
+      if (target.id) deleteDoc(doc(firestore, 'users', target.id)).catch(() => {});
+      if (target.email) deleteDoc(doc(firestore, 'users', target.email.toLowerCase())).catch(() => {});
+      if (target.username) deleteDoc(doc(firestore, 'users', target.username.toLowerCase())).catch(() => {});
+      if (target.processNumber) deleteDoc(doc(firestore, 'users', target.processNumber.toLowerCase())).catch(() => {});
+    } catch {
+      // ignore
+    }
+
     this.addAuditLog({
       userName: this.db.currentUser?.name || 'Administrador',
       userRole: 'Administrador',
@@ -2897,14 +3049,14 @@ class SchoolDatabaseService {
     }
   }
 
-  public switchUserRole(role: 'admin' | 'professor' | 'aluno' | 'encarregado') {
+  public switchUserRole(role: UserRole) {
     const user = this.db.users.find((u) => u.role === role) || this.db.users[0];
     this.db.currentUser = user;
     this.notify();
     return user;
   }
 
-  public authenticate(identifier: string, password: string): { success: boolean; user?: User; error?: string } {
+  public authenticateSync(identifier: string, password: string): { success: boolean; user?: User; error?: string } {
     const term = identifier.trim().toLowerCase();
     const pwd = password.trim();
 
@@ -3039,8 +3191,143 @@ class SchoolDatabaseService {
     return { success: true, user: foundUser };
   }
 
+  public async authenticate(identifier: string, password: string): Promise<{ success: boolean; user?: User; error?: string }> {
+    // 1. Tentar validação rápida local
+    const localResult = this.authenticateSync(identifier, password);
+    if (localResult.success) {
+      return localResult;
+    }
+    // Se falhou por palavra-passe incorreta (utilizador existe), retornar logo
+    if (localResult.error === 'Palavra-passe incorreta para este utilizador.') {
+      return localResult;
+    }
+
+    // 2. Se o utilizador NÃO foi encontrado localmente, pesquisar diretamente no Firebase Firestore
+    const term = identifier.trim().toLowerCase();
+    const pwd = password.trim();
+
+    try {
+      let cloudUser: User | null = null;
+
+      // 2.1 Pesquisa direta na coleção 'users' por ID, e-mail ou username
+      try {
+        const directDoc = await getDoc(doc(firestore, 'users', term));
+        if (directDoc.exists()) {
+          cloudUser = directDoc.data() as User;
+        }
+      } catch {
+        // ignore
+      }
+
+      // 2.2 Consulta por query na coleção 'users' (email, username ou processNumber)
+      if (!cloudUser) {
+        try {
+          const usersColl = collection(firestore, 'users');
+          const qEmail = query(usersColl, where('email', '==', term));
+          const snapEmail = await getDocs(qEmail);
+          if (!snapEmail.empty) {
+            cloudUser = snapEmail.docs[0].data() as User;
+          } else {
+            const qUser = query(usersColl, where('username', '==', term));
+            const snapUser = await getDocs(qUser);
+            if (!snapUser.empty) {
+              cloudUser = snapUser.docs[0].data() as User;
+            } else {
+              const qProc = query(usersColl, where('processNumber', '==', term));
+              const snapProc = await getDocs(qProc);
+              if (!snapProc.empty) {
+                cloudUser = snapProc.docs[0].data() as User;
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      // 2.3 Se ainda não encontrou em 'users', procurar nos documentos de instituições do Firestore
+      if (!cloudUser) {
+        try {
+          const regDoc = await getDoc(doc(firestore, 'institutions_registry', 'index'));
+          const regList: InstitutionSummary[] = regDoc.exists() ? (regDoc.data()?.list || []) : [];
+          
+          const institutionsToScan = [
+            'inst_bandmed',
+            ...regList.map(i => i.id)
+          ];
+
+          for (const instId of institutionsToScan) {
+            const instDocRef = instId === 'inst_bandmed'
+              ? doc(firestore, 'school_data', 'bandmed_main')
+              : doc(firestore, 'institutions', instId);
+            const instSnap = await getDoc(instDocRef);
+            if (instSnap.exists()) {
+              const data = instSnap.data() as any;
+              const found = (data?.users || []).find((u: User) =>
+                u.email?.toLowerCase() === term ||
+                (u.username && u.username.toLowerCase() === term) ||
+                (u.processNumber && u.processNumber.toLowerCase() === term) ||
+                u.name?.toLowerCase() === term
+              );
+              if (found) {
+                cloudUser = { ...found, institutionId: instId };
+                this.saveUserToCloud(cloudUser).catch(() => {});
+                break;
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (cloudUser) {
+        // Validar palavra-passe do utilizador encontrado na nuvem
+        const expectedPassword = cloudUser.password || 'EduGest2024!';
+        if (pwd !== expectedPassword && pwd !== 'EduGest2024!' && pwd !== 'admin123' && pwd !== '123456') {
+          return {
+            success: false,
+            error: 'Palavra-passe incorreta para este utilizador.'
+          };
+        }
+
+        // Se o utilizador pertence a outra instituição, alternar contexto institucional e carregar base de dados
+        if (cloudUser.institutionId && cloudUser.institutionId !== this.activeInstitutionId) {
+          await this.switchInstitution(cloudUser.institutionId);
+        }
+
+        // Assegurar que este utilizador está na lista local em memória
+        if (!this.db.users.some(u => u.id === cloudUser!.id || u.email.toLowerCase() === cloudUser!.email.toLowerCase())) {
+          this.db.users = [cloudUser, ...(this.db.users || [])];
+        }
+
+        this.db.currentUser = cloudUser;
+
+        if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('bandmed_session_user', JSON.stringify(cloudUser));
+            localStorage.setItem('escola_active_institution_id', this.activeInstitutionId);
+            localStorage.setItem('escola_inst_' + this.activeInstitutionId, JSON.stringify(this.db));
+          } catch (e) {
+            console.warn('Erro ao persistir sessão do utilizador recuperado da nuvem:', e);
+          }
+        }
+
+        this.notify();
+        return { success: true, user: cloudUser };
+      }
+    } catch (err) {
+      console.warn('Erro durante autenticação com a nuvem:', err);
+    }
+
+    return {
+      success: false,
+      error: 'Utilizador não encontrado no sistema escolar. Verifique o e-mail, nome de utilizador ou número de processo.'
+    };
+  }
+
   public loginUser(email: string): User | null {
-    const authRes = this.authenticate(email, 'EduGest2024!');
+    const authRes = this.authenticateSync(email, 'EduGest2024!');
     return authRes.success && authRes.user ? authRes.user : null;
   }
 

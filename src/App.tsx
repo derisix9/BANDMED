@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { dbService } from './services/db';
-import { SchoolDatabase, User, Student } from './types';
+import { SchoolDatabase, User, Student, UserRole } from './types';
 import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
 import { SqlExportModal } from './components/SqlExportModal';
@@ -18,6 +18,14 @@ import { PropinasView } from './views/PropinasView';
 import { RelatoriosView } from './views/RelatoriosView';
 import { AvisosEBibliotecaView } from './views/AvisosEBibliotecaView';
 import { ConfiguracoesView } from './views/ConfiguracoesView';
+import { AlunoPortalView } from './views/AlunoPortalView';
+
+const getDefaultViewForRole = (role: UserRole): string => {
+  if (role === 'aluno') return 'aluno_notas';
+  if (role === 'encarregado') return 'encarregado_financeiro';
+  if (role === 'professor') return 'pautas';
+  return 'dashboard';
+};
 
 export default function App() {
   const [db, setDb] = useState<SchoolDatabase>(dbService.getDatabase());
@@ -46,8 +54,44 @@ export default function App() {
     }
     return false;
   });
-  const [currentView, setCurrentView] = useState<string>('dashboard');
+  const [currentView, setCurrentView] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('bandmed_session_user');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return getDefaultViewForRole(parsed.role);
+      }
+    } catch {
+      // ignore
+    }
+    return getDefaultViewForRole(currentUser?.role || 'admin');
+  });
   const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('bandmed_sidebar_desktop_open');
+      if (saved !== null) return saved === 'true';
+    } catch {
+      // ignore
+    }
+    return true;
+  });
+
+  const handleToggleSidebar = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setIsMobileNavOpen((prev) => !prev);
+    } else {
+      setIsDesktopSidebarOpen((prev) => {
+        const next = !prev;
+        try {
+          localStorage.setItem('bandmed_sidebar_desktop_open', String(next));
+        } catch {
+          // ignore
+        }
+        return next;
+      });
+    }
+  };
 
   // Modals state
   const [isSqlModalOpen, setIsSqlModalOpen] = useState<boolean>(false);
@@ -70,7 +114,7 @@ export default function App() {
     }
     setCurrentUser(user);
     setIsAuthenticated(true);
-    setCurrentView('dashboard');
+    setCurrentView(getDefaultViewForRole(user.role));
   };
 
   const handleLogoutClick = () => {
@@ -119,6 +163,16 @@ export default function App() {
         currentUserRole={currentUser.role}
         isMobileOpen={isMobileNavOpen}
         onCloseMobile={() => setIsMobileNavOpen(false)}
+        isDesktopOpen={isDesktopSidebarOpen}
+        onToggleDesktop={(open) => {
+          const next = typeof open === 'boolean' ? open : !isDesktopSidebarOpen;
+          setIsDesktopSidebarOpen(next);
+          try {
+            localStorage.setItem('bandmed_sidebar_desktop_open', String(next));
+          } catch {
+            // ignore
+          }
+        }}
         onLogout={handleLogoutClick}
       />
 
@@ -133,6 +187,8 @@ export default function App() {
           dbService.setAcademicYear(year);
         }}
         onOpenMobileMenu={() => setIsMobileNavOpen(true)}
+        isDesktopSidebarOpen={isDesktopSidebarOpen}
+        onToggleSidebar={handleToggleSidebar}
         onOpenSqlExport={() => setIsSqlModalOpen(true)}
         onResetData={handleResetData}
         onLogout={handleLogoutClick}
@@ -146,10 +202,39 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="lg:pl-64 pt-20 px-4 lg:px-8 flex-1 transition-all duration-300">
+      <main className={`${isDesktopSidebarOpen ? 'lg:ml-64' : 'lg:ml-0'} pt-20 px-4 lg:px-8 flex-1 transition-all duration-300 min-w-0`}>
         <div className="max-w-7xl mx-auto">
-          <ErrorBoundary onReset={() => setCurrentView('dashboard')}>
-            {currentView === 'dashboard' && (
+          <ErrorBoundary onReset={() => setCurrentView(getDefaultViewForRole(currentUser.role))}>
+            {/* Student & Guardian Portal Views */}
+            {(currentView === 'aluno_notas' || (currentUser.role === 'aluno' && currentView === 'dashboard')) && (
+              <AlunoPortalView
+                db={db}
+                currentUser={currentUser}
+                currentUserRole={currentUser.role}
+                initialTab="notas"
+              />
+            )}
+
+            {currentView === 'aluno_financeiro' && (
+              <AlunoPortalView
+                db={db}
+                currentUser={currentUser}
+                currentUserRole={currentUser.role}
+                initialTab="financeiro"
+              />
+            )}
+
+            {(currentView === 'encarregado_financeiro' || (currentUser.role === 'encarregado' && currentView === 'dashboard')) && (
+              <AlunoPortalView
+                db={db}
+                currentUser={currentUser}
+                currentUserRole={currentUser.role}
+                initialTab="financeiro"
+              />
+            )}
+
+            {/* Dashboard: strictly restricted from Professor, Student and Guardian */}
+            {currentView === 'dashboard' && currentUser.role !== 'professor' && currentUser.role !== 'aluno' && currentUser.role !== 'encarregado' && (
               <DashboardView
                 db={db}
                 onNavigate={setCurrentView}
@@ -160,6 +245,15 @@ export default function App() {
                   setIsNoticeModalOpen(true);
                 }}
                 onOpenReportCard={(student) => setReportCardStudent(student)}
+              />
+            )}
+
+            {/* If a Professor lands on dashboard, show PautasView instead */}
+            {currentView === 'dashboard' && currentUser.role === 'professor' && (
+              <PautasView
+                db={db}
+                currentUserRole={currentUser.role}
+                currentUser={currentUser}
               />
             )}
 
@@ -175,7 +269,7 @@ export default function App() {
               <ProfessoresView db={db} currentUserRole={currentUser.role} />
             )}
 
-            {currentView === 'turmas' && (
+            {currentView === 'turmas' && currentUser.role !== 'professor' && (
               <TurmasView
                 db={db}
                 currentUserRole={currentUser.role}
@@ -297,7 +391,7 @@ export default function App() {
                 className="px-5 py-2.5 rounded-none bg-[#b91c1c] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-none border-none"
               >
                 <span className="material-symbols-outlined text-[16px]">logout</span>
-                <span>Confirmar e Terminar Sessão</span>
+                <span>Confirmar</span>
               </button>
             </div>
           </div>

@@ -986,7 +986,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                 type="button"
               >
                 <span className="material-symbols-outlined text-[16px]">add</span>
-                <span>Nova Turma</span>
+                <span>CADASTRAR</span>
               </button>
             </div>
           </div>
@@ -1177,7 +1177,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                               type="button"
                             >
                               <span className="material-symbols-outlined text-[16px]">add</span>
-                              <span>+ Cadastrar Primeira Turma Real</span>
+                              <span>Cadastrar Primeira Turma</span>
                             </button>
                           )}
                         </div>
@@ -1249,7 +1249,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   className="px-3.5 py-2 rounded-none bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[16px]">visibility</span>
-                  <span>Ver Horário da Turma</span>
+                  <span>Ver Horário</span>
                 </button>
               )}
             </div>
@@ -1597,7 +1597,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                     className="px-4 py-2 rounded-none bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold text-xs uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[16px]">print</span>
-                    <span>Visualizar Ficha & Imprimir Horário Oficial</span>
+                    <span>Visualizar</span>
                   </button>
                 </div>
               </div>
@@ -1640,7 +1640,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                 type="button"
               >
                 <span className="material-symbols-outlined text-[16px]">add</span>
-                <span>Novo Curso</span>
+                <span>CADASTRAR</span>
               </button>
             </div>
           </div>
@@ -1762,7 +1762,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                               type="button"
                             >
                               <span className="material-symbols-outlined text-[16px]">add</span>
-                              <span>+ Criar Primeiro Curso Real</span>
+                              <span>Criar Primeiro Curso</span>
                             </button>
                           )}
                         </div>
@@ -1775,13 +1775,6 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
 
             <div className="py-3 px-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
               <span>Total de {filteredCourses.length} cursos homologados</span>
-              <button
-                onClick={() => setShowNovoCursoModal(true)}
-                className="text-[#0b1f3a] font-bold hover:underline flex items-center gap-1"
-                type="button"
-              >
-                <span>+ Adicionar Novo Curso</span>
-              </button>
             </div>
           </div>
         </div>
@@ -1833,7 +1826,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                 type="button"
               >
                 <span className="material-symbols-outlined text-[16px]">add</span>
-                <span>Nova Disciplina</span>
+                <span>CADASTRAR</span>
               </button>
 
               <button
@@ -1842,7 +1835,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                 type="button"
               >
                 <span className="material-symbols-outlined text-[16px] text-[#ac332b]">file_download</span>
-                <span>Exportar Matriz</span>
+                <span>EXPORTAR</span>
               </button>
             </div>
           </div>
@@ -1986,7 +1979,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                               type="button"
                             >
                               <span className="material-symbols-outlined text-[16px]">add</span>
-                              <span>+ Cadastrar Primeira Disciplina Real</span>
+                              <span>Cadastrar Primeira Disciplina</span>
                             </button>
                           )}
                         </div>
@@ -3306,7 +3299,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                         className="px-5 py-2.5 rounded-none bg-[#b91c1c] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-none border-none"
                       >
                         <span className="material-symbols-outlined text-[16px]">delete</span>
-                        <span>Sim, Eliminar Turma</span>
+                        <span>Eliminar</span>
                       </button>
                     </div>
                   </div>
@@ -3513,7 +3506,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   className="px-5 py-2.5 rounded-none bg-[#b91c1c] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-none border-none"
                 >
                   <span className="material-symbols-outlined text-[16px]">delete</span>
-                  <span>Sim, Eliminar Curso</span>
+                  <span>Eliminar</span>
                 </button>
               </div>
             </div>
@@ -3716,7 +3709,7 @@ export const TurmasView: React.FC<TurmasViewProps> = ({
                   className="px-5 py-2.5 rounded-none bg-[#b91c1c] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-none border-none"
                 >
                   <span className="material-symbols-outlined text-[16px]">delete</span>
-                  <span>Sim, Eliminar Disciplina</span>
+                  <span>Eliminar</span>
                 </button>
               </div>
             </div>

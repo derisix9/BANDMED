@@ -164,14 +164,69 @@ img {
 /* ========================================================================= */
 @media print {
   @page {
-    margin: 5mm 6mm;
+    margin: 5mm 5mm;
+    size: A4 portrait;
+  }
+
+  /* Documentos estritamente verticais (Fatura, Ficha do Aluno, Ficha do Professor, Boletim) */
+  @page portrait-doc {
+    size: A4 portrait;
+    margin: 5mm 5mm;
+  }
+
+  .print-portrait,
+  .printable-portrait {
+    page: portrait-doc !important;
+  }
+
+  /* Documentos horizontais largos (Pautas Trimestrais, Mapas Estatísticos, Assiduidade) */
+  @page landscape-doc {
     size: A4 landscape;
+    margin: 4mm 5mm;
+  }
+
+  .print-landscape,
+  .printable-landscape {
+    page: landscape-doc !important;
+  }
+
+  /* Preservar cores originais e fundos ao imprimir (estilo tabelas Excel personalizadas) */
+  *,
+  table,
+  thead,
+  tbody,
+  tr,
+  th,
+  td,
+  div,
+  span {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  table {
+    border-collapse: collapse !important;
+    page-break-inside: auto !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tfoot {
+    display: table-footer-group !important;
   }
 
   html, body {
     background: #ffffff !important;
     color: #000000 !important;
-    font-size: 9.5pt !important;
+    font-size: 9pt !important;
     height: auto !important;
     min-height: 0 !important;
     margin: 0 !important;
@@ -205,8 +260,26 @@ img {
   .printable-document,
   .printable-document *,
   .printable-page,
-  .printable-page * {
+  .printable-page *,
+  .printable-report,
+  .printable-report *,
+  .printable-pauta,
+  .printable-pauta * {
     visibility: visible !important;
+  }
+
+  /* Fixar a área de impressão de pautas no topo da página */
+  .printable-pauta {
+    position: static !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+    display: block !important;
   }
 
   /* Fixar a área de impressão no topo exato da primeira página */
@@ -277,6 +350,16 @@ img {
   .print-break-avoid {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
+  }
+
+  .page-break-before {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
+  .page-break-after {
+    break-after: page !important;
+    page-break-after: always !important;
   }
 
   /* Formatação de fieldset e legendas na impressão */

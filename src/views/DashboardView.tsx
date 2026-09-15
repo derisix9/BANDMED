@@ -84,7 +84,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               Painel de Controlo Principal
             </h1>
             <p className="text-xs text-blue-200 mt-1 font-medium">
-              Ano Letivo {db.settings.currentAcademicYear} • Resumo Executivo em tempo real • Campus Central ({db.settings.schoolName})
+              Ano Letivo {db.settings.currentAcademicYear} • Resumo Executivo em tempo real • ({db.settings.schoolName})
             </p>
           </div>
 

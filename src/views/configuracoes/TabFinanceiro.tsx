@@ -1,8 +1,7 @@
-import React, { useState, useMemo } from 'react';
-import { InstitutionSettings, UserRole } from '../../types';
-import { getActiveSubsystems, EducationLevelId } from '../../utils/educationSubsystems';
-import { runGlobalOperation } from '../../context/OperationContext';
+import React, { useState } from 'react';
+import { InstitutionSettings, UserRole, SchoolServiceItem } from '../../types';
 import { dbService } from '../../services/db';
+import { runGlobalOperation } from '../../context/OperationContext';
 
 interface TabFinanceiroProps {
   settings: InstitutionSettings;
@@ -11,802 +10,872 @@ interface TabFinanceiroProps {
   onSaveAll: (options?: { loadingMessage?: string; successMessage?: string; requiredRule?: string }) => void;
 }
 
-interface TuitionRow {
+interface BankAccountConfig {
   id: string;
-  subsystemId: EducationLevelId;
-  nivel: string;
-  classes: string;
-  matutino: string;
-  vespertino: string;
-  noturno: string;
-  icon?: string;
+  bankName: string;
+  accountHolder: string;
+  accountNumber: string;
+  iban: string;
+  multicaixaEntity?: string;
+  active: boolean;
 }
 
-const DEFAULT_TUITION_ROWS: TuitionRow[] = [
+interface TuitionRowConfig {
+  id: string;
+  levelName: string;
+  cycle: string;
+  grades: string;
+  matriculaKz: number;
+  confirmacaoKz: number;
+  monthlyTuitionKz: number;
+  lateFeeLimitDays: number;
+}
+
+const DEFAULT_BANKS: BankAccountConfig[] = [
   {
-    id: 't-pre',
-    subsystemId: 'pre_escolar',
-    nivel: 'Educação Pré-Escolar (Creche & Iniciação)',
-    classes: 'Creche, Jardim de Infância e Iniciação',
-    matutino: '45.000',
-    vespertino: '45.000',
-    noturno: '60.000 (Integral)',
-    icon: 'child_care'
+    id: 'bank-bai',
+    bankName: 'Banco Angolano de Investimentos (BAI)',
+    accountHolder: 'Complexo Escolar BandMed Luanda',
+    accountNumber: '4455889901',
+    iban: 'AO06.0040.0000.4455.8899.0101.4',
+    multicaixaEntity: '00342',
+    active: true
   },
   {
-    id: 't-prim',
-    subsystemId: 'primario',
-    nivel: 'Ensino Primário (1.ª à 6.ª Classe)',
-    classes: '1.ª à 6.ª Classe (Monodocência até à 4.ª)',
-    matutino: '55.000',
-    vespertino: '55.000',
-    noturno: '—',
-    icon: 'school'
+    id: 'bank-bfa',
+    bankName: 'Banco de Fomento Angola (BFA)',
+    accountHolder: 'Complexo Escolar BandMed Luanda',
+    accountNumber: '7788991122',
+    iban: 'AO06.0006.0000.7788.9911.2201.8',
+    multicaixaEntity: '00119',
+    active: true
   },
   {
-    id: 't-sec1',
-    subsystemId: 'secundario_1',
-    nivel: 'I Ciclo do Ensino Secundário',
-    classes: '7.ª, 8.ª e 9.ª Classes, I e II Ano EJA',
-    matutino: '75.000',
-    vespertino: '75.000',
-    noturno: '70.000 (EJA)',
-    icon: 'menu_book'
-  },
-  {
-    id: 't-sec2-cfb',
-    subsystemId: 'secundario_2',
-    nivel: 'II Ciclo Geral (Ciências Físicas e Biológicas)',
-    classes: '10.ª à 12.ª Classes',
-    matutino: '95.000',
-    vespertino: '90.000',
-    noturno: '—',
-    icon: 'biotech'
-  },
-  {
-    id: 't-sec2-cej',
-    subsystemId: 'secundario_2',
-    nivel: 'II Ciclo Geral (Ciências Económicas e Jurídicas)',
-    classes: '10.ª à 12.ª Classes',
-    matutino: '90.000',
-    vespertino: '85.000',
-    noturno: '—',
-    icon: 'gavel'
-  },
-  {
-    id: 't-sec2-tec',
-    subsystemId: 'secundario_2',
-    nivel: 'II Ciclo Técnico Profissional (Saúde & Tecnologias)',
-    classes: '10.ª à 13.ª Classes (Finalistas)',
-    matutino: '120.000',
-    vespertino: '120.000',
-    noturno: '130.000',
-    icon: 'medical_services'
-  },
-  {
-    id: 't-sup',
-    subsystemId: 'superior',
-    nivel: 'Ensino Superior (Graduação & Pós-Graduação)',
-    classes: 'Bacharelato, Licenciatura, Mestrado',
-    matutino: '140.000',
-    vespertino: '140.000',
-    noturno: '155.000 (Pós-laboral)',
-    icon: 'history_edu'
+    id: 'bank-bma',
+    bankName: 'Banco Millennium Atlântico (BMA)',
+    accountHolder: 'Complexo Escolar BandMed Luanda',
+    accountNumber: '1122334455',
+    iban: 'AO06.0055.0000.1122.3344.5501.9',
+    multicaixaEntity: '00287',
+    active: false
   }
 ];
 
-const DEFAULT_EMOLUMENTOS = [
-  { id: 'EMOL-001', nome: 'Matrícula Nova (Ano Letivo 2024/2025)', valor: '35.000', tipo: 'Taxa Única', prazo: 'No ato da inscrição' },
-  { id: 'EMOL-002', nome: 'Confirmação de Matrícula (Alunos Internos)', valor: '25.000', tipo: 'Taxa Única', prazo: 'Até 31 de Agosto' },
-  { id: 'EMOL-003', nome: 'Certificado de Habilitações com Notas', valor: '15.000', tipo: 'Por Pedido', prazo: '5 dias úteis de emissão' },
-  { id: 'EMOL-004', nome: 'Declaração com Notas / Frequência', valor: '5.000', tipo: 'Por Pedido', prazo: '48 horas úteis' },
-  { id: 'EMOL-005', nome: '2ª Via de Cartão de Estudante (RFID)', valor: '3.500', tipo: 'Por Pedido', prazo: '24 horas úteis' },
-  { id: 'EMOL-006', nome: 'Exame de Recurso (Por Disciplina)', valor: '12.000', tipo: 'Por Exame', prazo: 'Antes da realização' }
+const DEFAULT_TUITION_ROWS: TuitionRowConfig[] = [
+  {
+    id: 't-iniciacao',
+    levelName: 'Educação Pré-Escolar / Iniciação',
+    cycle: 'Pré-Escolar',
+    grades: 'Creche à Iniciação',
+    matriculaKz: 25000,
+    confirmacaoKz: 15000,
+    monthlyTuitionKz: 28000,
+    lateFeeLimitDays: 10
+  },
+  {
+    id: 't-primario',
+    levelName: 'Ensino Primário',
+    cycle: 'I e II Ciclo do Primário',
+    grades: '1.ª à 6.ª Classe',
+    matriculaKz: 28000,
+    confirmacaoKz: 18000,
+    monthlyTuitionKz: 32000,
+    lateFeeLimitDays: 10
+  },
+  {
+    id: 't-iciclo',
+    levelName: 'I Ciclo do Ensino Secundário',
+    cycle: 'Geral',
+    grades: '7.ª, 8.ª e 9.ª Classe',
+    matriculaKz: 32000,
+    confirmacaoKz: 20000,
+    monthlyTuitionKz: 36500,
+    lateFeeLimitDays: 10
+  },
+  {
+    id: 't-iiciclo-geral',
+    levelName: 'II Ciclo do Ensino Secundário Geral (PUNIV)',
+    cycle: 'Ciências Físicas e Biológicas / Económicas',
+    grades: '10.ª, 11.ª e 12.ª Classe',
+    matriculaKz: 38000,
+    confirmacaoKz: 24000,
+    monthlyTuitionKz: 42000,
+    lateFeeLimitDays: 10
+  },
+  {
+    id: 't-tecnico-saude',
+    levelName: 'Ensino Técnico-Profissional (Saúde & Tecnologias)',
+    cycle: 'Enfermagem, Farmácia, Análises Clínicas',
+    grades: '10.ª, 11.ª, 12.ª e 13.ª Classe',
+    matriculaKz: 45000,
+    confirmacaoKz: 28000,
+    monthlyTuitionKz: 48500,
+    lateFeeLimitDays: 10
+  }
 ];
 
-export const TabFinanceiro: React.FC<TabFinanceiroProps> = ({ settings, currentUserRole, onUpdateSettings, onSaveAll }) => {
-  const [tuitionRows, setTuitionRows] = useState<TuitionRow[]>(
-    Array.isArray(settings.tuitionRows)
-      ? settings.tuitionRows
-      : (settings.schoolName ? DEFAULT_TUITION_ROWS : [])
+export const TabFinanceiro: React.FC<TabFinanceiroProps> = ({
+  settings,
+  currentUserRole,
+  onUpdateSettings,
+  onSaveAll
+}) => {
+  const initialFinancialRules = settings.financialRules || {
+    paymentDueDay: 10,
+    lateFeePercent: 10.0,
+    discountPercent: 5.0,
+    siblingDiscountPercent: 10.0
+  };
+
+  // State: Financial Rules & Policies
+  const [paymentDueDay, setPaymentDueDay] = useState<number>(initialFinancialRules.paymentDueDay ?? 10);
+  const [lateFeePercent, setLateFeePercent] = useState<number>(initialFinancialRules.lateFeePercent ?? 10.0);
+  const [discountPercent, setDiscountPercent] = useState<number>(initialFinancialRules.discountPercent ?? 5.0);
+  const [siblingDiscountPercent, setSiblingDiscountPercent] = useState<number>(initialFinancialRules.siblingDiscountPercent ?? 10.0);
+  const [graceDays, setGraceDays] = useState<number>(initialFinancialRules.graceDays ?? 3);
+  const [allowPartialPayments, setAllowPartialPayments] = useState<boolean>(initialFinancialRules.allowPartialPayments ?? true);
+  const [blockExamsWithDebt, setBlockExamsWithDebt] = useState<boolean>(initialFinancialRules.blockExamsWithDebt ?? false);
+  const [blockCertificatesWithDebt, setBlockCertificatesWithDebt] = useState<boolean>(initialFinancialRules.blockCertificatesWithDebt ?? true);
+
+  // State: Tuition Table Rows
+  const [tuitionRows, setTuitionRows] = useState<TuitionRowConfig[]>(
+    settings.tuitionRows && settings.tuitionRows.length > 0 ? settings.tuitionRows : DEFAULT_TUITION_ROWS
   );
 
-  const [editingRow, setEditingRow] = useState<TuitionRow | null>(null);
-  const [editMatutino, setEditMatutino] = useState('');
-  const [editVespertino, setEditVespertino] = useState('');
-  const [editNoturno, setEditNoturno] = useState('');
-
-  const [emolumentos, setEmolumentos] = useState<any[]>(
-    Array.isArray(settings.emolumentos)
-      ? settings.emolumentos
-      : (settings.schoolName ? DEFAULT_EMOLUMENTOS : [])
+  // State: Bank Accounts
+  const [bankAccounts, setBankAccounts] = useState<BankAccountConfig[]>(
+    (settings as any).bankAccounts && (settings as any).bankAccounts.length > 0
+      ? (settings as any).bankAccounts
+      : DEFAULT_BANKS
   );
-  const [showModal, setShowModal] = useState(false);
-  const [editingEmolumento, setEditingEmolumento] = useState<{ id: string; nome: string; valor: string; tipo: string; prazo: string } | null>(null);
-  const [emolumentoToDelete, setEmolumentoToDelete] = useState<{ id: string; nome: string; valor: string } | null>(null);
-  const [novoNome, setNovoNome] = useState('');
-  const [novoValor, setNovoValor] = useState('');
-  const [novoTipo, setNovoTipo] = useState('Por Pedido');
-  const [novoPrazo, setNovoPrazo] = useState('');
 
-  // Financial Rules
-  const [paymentDueDay, setPaymentDueDay] = useState(settings.financialRules?.paymentDueDay || '10');
-  const [lateFeePercent, setLateFeePercent] = useState(settings.financialRules?.lateFeePercent || '10.0');
-  const [discountPercent, setDiscountPercent] = useState(settings.financialRules?.discountPercent || '8.0');
-  const [siblingDiscountPercent, setSiblingDiscountPercent] = useState(settings.financialRules?.siblingDiscountPercent || '10.0');
-
+  // UI States
+  const [activeSubSection, setActiveSubSection] = useState<'politicas' | 'tabela' | 'bancos' | 'fiscal'>('politicas');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Modals
+  const [showAddBankModal, setShowAddBankModal] = useState(false);
+  const [newBankName, setNewBankName] = useState('');
+  const [newBankHolder, setNewBankHolder] = useState('Complexo Escolar BandMed Luanda');
+  const [newBankAccountNumber, setNewBankAccountNumber] = useState('');
+  const [newBankIban, setNewBankIban] = useState('AO06.');
+  const [newBankEntity, setNewBankEntity] = useState('');
 
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const activeSubsystemList = useMemo(() => {
-    return getActiveSubsystems(settings.selectedSubsystems);
-  }, [settings.selectedSubsystems]);
-
-  const visibleTuitionRows = useMemo(() => {
-    if (!settings.selectedSubsystems || settings.selectedSubsystems.length === 0) {
-      return tuitionRows;
-    }
-    return tuitionRows.filter((r) => settings.selectedSubsystems!.includes(r.subsystemId));
-  }, [tuitionRows, settings.selectedSubsystems]);
-
-  const handleStartEditRow = (row: TuitionRow) => {
-    setEditingRow(row);
-    setEditMatutino(row.matutino);
-    setEditVespertino(row.vespertino);
-    setEditNoturno(row.noturno);
+  const formatKz = (val: number) => {
+    return new Intl.NumberFormat('pt-AO', {
+      style: 'currency',
+      currency: 'AOA',
+      maximumFractionDigits: 0
+    }).format(val).replace('AOA', 'Kz');
   };
 
-  const handleSaveEditRow = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingRow) return;
-    const updated = tuitionRows.map((r) =>
-      r.id === editingRow.id
-        ? {
-            ...r,
-            matutino: editMatutino,
-            vespertino: editVespertino,
-            noturno: editNoturno
-          }
-        : r
+  const handleUpdateTuitionRow = (id: string, field: keyof TuitionRowConfig, val: number) => {
+    setTuitionRows((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, [field]: Number(val) || 0 } : row))
     );
-    setTuitionRows(updated);
-    if (onUpdateSettings) {
-      onUpdateSettings({ subsystemTuitions: updated });
-    }
-    setEditingRow(null);
-    triggerToast('Valores de propinas da classe atualizados com sucesso!');
   };
 
-  const handleSaveEmolumento = async (e: React.FormEvent) => {
+  const handleToggleBank = (id: string) => {
+    setBankAccounts((prev) =>
+      prev.map((bank) => (bank.id === id ? { ...bank, active: !bank.active } : bank))
+    );
+  };
+
+  const handleDeleteBank = (id: string) => {
+    if (confirm('Deseja realmente remover esta conta bancária das coordenadas institucionais?')) {
+      setBankAccounts((prev) => prev.filter((b) => b.id !== id));
+      triggerToast('Conta bancária removida.');
+    }
+  };
+
+  const handleAddBank = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!novoNome || !novoValor) return;
+    if (!newBankName.trim() || !newBankIban.trim()) {
+      alert('Por favor, informe o nome do banco e o IBAN.');
+      return;
+    }
+
+    const newAccount: BankAccountConfig = {
+      id: `bank-${Date.now()}`,
+      bankName: newBankName.trim(),
+      accountHolder: newBankHolder.trim() || settings.schoolName || 'Instituição de Ensino',
+      accountNumber: newBankAccountNumber.trim() || '---',
+      iban: newBankIban.trim(),
+      multicaixaEntity: newBankEntity.trim() || undefined,
+      active: true
+    };
+
+    setBankAccounts((prev) => [...prev, newAccount]);
+    setShowAddBankModal(false);
+    setNewBankName('');
+    setNewBankAccountNumber('');
+    setNewBankIban('AO06.');
+    setNewBankEntity('');
+    triggerToast('Nova conta bancária adicionada com sucesso.');
+  };
+
+  const handleSaveAllFinancial = async () => {
+    const updatedFinancialRules = {
+      ...initialFinancialRules,
+      paymentDueDay,
+      lateFeePercent,
+      discountPercent,
+      siblingDiscountPercent,
+      graceDays,
+      allowPartialPayments,
+      blockExamsWithDebt,
+      blockCertificatesWithDebt
+    };
+
+    const newPartialSettings: Partial<InstitutionSettings> = {
+      financialRules: updatedFinancialRules,
+      tuitionRows,
+      currencyCode: 'Kz',
+      ...({ bankAccounts } as any)
+    };
+
+    if (onUpdateSettings) {
+      onUpdateSettings(newPartialSettings);
+    }
+
+    dbService.updateSettings(newPartialSettings);
+
+    dbService.addAuditLog({
+      userName: 'Direção Financeira',
+      userRole: currentUserRole || 'financeiro',
+      action: 'Configuração da Tabela Financeira',
+      details: `Políticas de mora (${lateFeePercent}%), dia limite (${paymentDueDay}) e tabelas de propinas/emolumentos atualizadas.`,
+      module: 'propinas',
+      timestamp: 'Agora mesmo',
+      badgeColor: '#0b1f3a'
+    });
 
     await runGlobalOperation(
       async () => {
-        let updated: any[];
-        if (editingEmolumento) {
-          updated = emolumentos.map((item) =>
-            item.id === editingEmolumento.id
-              ? {
-                  ...item,
-                  nome: novoNome,
-                  valor: novoValor,
-                  tipo: novoTipo,
-                  prazo: novoPrazo || 'Até 48 horas úteis'
-                }
-              : item
-          );
-        } else {
-          const newId = `EMOL-00${emolumentos.length + 1}`;
-          updated = [
-            ...emolumentos,
-            {
-              id: newId,
-              nome: novoNome,
-              valor: novoValor,
-              tipo: novoTipo,
-              prazo: novoPrazo || 'Até 48 horas úteis'
-            }
-          ];
-        }
-        setEmolumentos(updated);
-        if (onUpdateSettings) {
-          onUpdateSettings({ emolumentos: updated });
-        }
-        dbService.updateSettings({ emolumentos: updated });
+        await new Promise((res) => setTimeout(res, 600));
       },
       {
-        loadingMessage: editingEmolumento ? 'A atualizar emolumento na tabela...' : 'A registar novo emolumento na tabela financeira...',
-        successMessage: 'Operação feita com sucesso!',
-        requiredRule: 'config.institution',
-        userRole: currentUserRole
+        loadingMessage: 'A gravar tabelas de propinas, regras de mora e catálogo financeiro...',
+        successMessage: 'Configurações financeiras e emolumentos sincronizados com sucesso!'
       }
     );
 
-    setShowModal(false);
-    setEditingEmolumento(null);
-    setNovoNome('');
-    setNovoValor('');
-    setNovoTipo('Por Pedido');
-    setNovoPrazo('');
-  };
-
-  const handleStartEditEmolumento = (item: { id: string; nome: string; valor: string; tipo: string; prazo: string }) => {
-    setEditingEmolumento(item);
-    setNovoNome(item.nome);
-    setNovoValor(item.valor);
-    setNovoTipo(item.tipo);
-    setNovoPrazo(item.prazo);
-    setShowModal(true);
-  };
-
-  const handleDeleteEmolumento = (id: string) => {
-    const updated = emolumentos.filter((e) => e.id !== id);
-    setEmolumentos(updated);
-    if (onUpdateSettings) {
-      onUpdateSettings({ emolumentos: updated });
-    }
-    triggerToast('Emolumento removido da tabela de taxas.');
-  };
-
-  const handleSaveAllFinance = () => {
-    if (onUpdateSettings) {
-      onUpdateSettings({
-        tuitionRows,
-        emolumentos,
-        financialRules: {
-          paymentDueDay: Number(paymentDueDay) || 10,
-          lateFeePercent: Number(lateFeePercent) || 10,
-          discountPercent: Number(discountPercent) || 8,
-          siblingDiscountPercent: Number(siblingDiscountPercent) || 10
-        }
-      });
-    }
-    onSaveAll({
-      loadingMessage: 'A guardar tabela de propinas, taxas e regras financeiras...',
-      successMessage: 'Operação feita com sucesso!'
-    });
-    triggerToast('Tabela de propinas, taxas e regras financeiras guardadas com sucesso!');
+    triggerToast('Tabela financeira guardada com êxito no sistema.');
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Toast Notice */}
+    <div className="flex flex-col gap-6" id="tab-financeiro-container">
+      {/* Toast Notification */}
       {toastMessage && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 shadow-xs">
-          <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
-          <span>{toastMessage}</span>
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-[#0b1f3a] text-white rounded-xl shadow-xl border border-slate-700 animate-in fade-in slide-in-from-bottom-2">
+          <span className="material-symbols-outlined text-emerald-400 text-xl">check_circle</span>
+          <p className="text-sm font-medium">{toastMessage}</p>
         </div>
       )}
 
-      {/* Top Header */}
+      {/* Header Banner */}
       <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center text-[#0b1f3a] shrink-0">
-            <span className="material-symbols-outlined text-[26px]">payments</span>
+          <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200/60 flex items-center justify-center text-amber-700 shrink-0">
+            <span className="material-symbols-outlined text-2xl">payments</span>
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[11px] uppercase tracking-wider text-[#ac332b] font-bold">Módulo 03</span>
               <span className="w-1 h-1 rounded-full bg-slate-300" />
-              <span className="text-[11px] text-slate-500 font-medium">Tabela Oficial de Propinas & Emolumentos</span>
+              <span className="text-[11px] text-slate-500 font-medium">Gestão Financeira & Cobranças</span>
             </div>
-            <h2 className="font-headline text-lg lg:text-xl font-bold text-slate-900">
-              Parametrização Financeira, Mensalidades & Taxas da Secretaria
+            <h2 className="text-lg lg:text-xl font-bold text-slate-900">
+              Tabela Financeira, Políticas de Propinas & Emolumentos
             </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Prazos de pagamento, taxas de mora, descontos por agregado, preçário de propinas e coordenadas bancárias oficiais de Angola.
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1.5 rounded-full bg-slate-100 text-slate-800 font-mono text-xs font-bold self-start">
-            MOEDA: KWANZA (AOA / Kz)
-          </span>
+        <div className="flex items-center gap-3 self-end sm:self-center">
+          <button
+            type="button"
+            id="btn-save-financeiro"
+            onClick={handleSaveAllFinancial}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#0b1f3a] hover:bg-[#15345d] text-white text-sm font-semibold rounded-xl transition-all shadow-sm active:scale-95"
+          >
+            <span className="material-symbols-outlined text-lg">save</span>
+            Guardar Configurações
+          </button>
         </div>
       </div>
 
-      {/* Subsystems Filter Summary */}
-      <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="font-bold text-slate-700">Sub-sistemas Ativos:</span>
-          <div className="flex flex-wrap gap-1.5">
-            {activeSubsystemList.map((sub) => (
-              <span
-                key={sub.id}
-                className="px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-800 font-semibold text-[11px]"
-              >
-                {sub.shortName || sub.name}
+      {/* Navigation Sub-Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200">
+        {[
+          { id: 'politicas', label: '1. Prazos & Multas (Políticas Gerais)', icon: 'schedule' },
+          { id: 'tabela', label: '2. Propinas por Nível / Ciclo', icon: 'table_chart' },
+          { id: 'bancos', label: '3. Contas Bancárias & IBAN', icon: 'account_balance' },
+          { id: 'fiscal', label: '4. Regime Fiscal & AGT', icon: 'verified' }
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            id={`subtab-${tab.id}`}
+            type="button"
+            onClick={() => setActiveSubSection(tab.id as any)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+              activeSubSection === tab.id
+                ? 'bg-[#0b1f3a] text-white shadow-xs'
+                : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+            }`}
+          >
+            <span className="material-symbols-outlined text-base">{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* SECTION 1: POLÍTICAS GERAIS, PRAZOS & MULTAS */}
+      {activeSubSection === 'politicas' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Card: Prazos e Multas de Mensalidades */}
+          <div className="lg:col-span-2 p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col gap-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-amber-600 text-lg">event_available</span>
+                  Prazos de Vencimento e Taxa de Mora (Multa)
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Regras oficiais aplicadas na emissão mensal e no cálculo automatizado de juros por atraso.
+                </p>
+              </div>
+              <span className="px-2.5 py-1 bg-amber-50 text-amber-800 text-[11px] font-bold rounded-lg border border-amber-200">
+                Padrão Angola
               </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {/* Dia Limite de Pagamento */}
+              <div className="flex flex-col gap-1.5 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                  <span>Dia Limite sem Multa</span>
+                  <span className="text-[11px] font-mono text-slate-500">Dia do mês</span>
+                </label>
+                <div className="relative mt-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={paymentDueDay}
+                    onChange={(e) => setPaymentDueDay(Math.min(31, Math.max(1, Number(e.target.value))))}
+                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-semibold text-slate-900"
+                  />
+                </div>
+                <span className="text-[11px] text-slate-500 mt-1">
+                  Propinas pagas após o dia <strong>{paymentDueDay}</strong> incidem acréscimo de multa.
+                </span>
+              </div>
+
+              {/* Taxa de Multa */}
+              <div className="flex flex-col gap-1.5 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                  <span>Taxa de Multa por Atraso</span>
+                  <span className="text-[11px] font-mono text-amber-700 font-bold">{lateFeePercent}%</span>
+                </label>
+                <div className="relative mt-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    value={lateFeePercent}
+                    onChange={(e) => setLateFeePercent(Math.max(0, Number(e.target.value)))}
+                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-semibold text-slate-900"
+                  />
+                </div>
+                <span className="text-[11px] text-slate-500 mt-1">
+                  Percentual sobre a mensalidade base adicionado à fatura no 1.º mês de incumprimento.
+                </span>
+              </div>
+
+              {/* Dias de Carência / Tolerância */}
+              <div className="flex flex-col gap-1.5 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                  <span>Dias de Carência / Tolerância</span>
+                  <span className="text-[11px] font-mono text-slate-500">{graceDays} dias</span>
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={15}
+                  value={graceDays}
+                  onChange={(e) => setGraceDays(Math.max(0, Number(e.target.value)))}
+                  className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-amber-500 font-semibold text-slate-900 mt-1"
+                />
+                <span className="text-[11px] text-slate-500 mt-1">
+                  Margem de tolerância antes do disparo do cálculo automático de mora.
+                </span>
+              </div>
+
+              {/* Desconto de Antecipação */}
+              <div className="flex flex-col gap-1.5 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                  <span>Desconto por Pagamento Antecipado</span>
+                  <span className="text-[11px] font-mono text-emerald-700 font-bold">{discountPercent}%</span>
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={50}
+                  step={0.5}
+                  value={discountPercent}
+                  onChange={(e) => setDiscountPercent(Math.max(0, Number(e.target.value)))}
+                  className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-500 font-semibold text-slate-900 mt-1"
+                />
+                <span className="text-[11px] text-slate-500 mt-1">
+                  Desconto concedido se a liquidação ocorrer até ao dia 05 de cada mês.
+                </span>
+              </div>
+            </div>
+
+            {/* Desconto Familiar / Irmãos */}
+            <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h4 className="text-xs font-bold text-[#0b1f3a] flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-blue-600 text-sm">diversity_3</span>
+                  Desconto por Agregado Familiar (Irmãos Matriculados)
+                </h4>
+                <p className="text-[11px] text-slate-600 mt-0.5">
+                  Redução aplicada a partir do 2.º educando com mesmo encarregado de educação.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <input
+                  type="number"
+                  min={0}
+                  max={50}
+                  value={siblingDiscountPercent}
+                  onChange={(e) => setSiblingDiscountPercent(Math.max(0, Number(e.target.value)))}
+                  className="w-24 px-3 py-1.5 text-sm bg-white border border-blue-300 rounded-lg font-bold text-blue-900 text-center"
+                />
+                <span className="text-xs font-bold text-blue-900">%</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card: Restrições & Bloqueios Administrativos */}
+          <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col gap-5">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-rose-600 text-lg">gavel</span>
+                Restrições por Inadimplência
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Diretrizes de secretaria e conformidade legal MED.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={blockCertificatesWithDebt}
+                  onChange={(e) => setBlockCertificatesWithDebt(e.target.checked)}
+                  className="mt-1 rounded text-[#0b1f3a] focus:ring-[#0b1f3a] h-4 w-4"
+                />
+                <div>
+                  <span className="text-xs font-bold text-slate-800 block">
+                    Bloquear Emissão de Certificados & Declarações
+                  </span>
+                  <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
+                    Impede a geração de novos certificados para alunos com saldo devedor em aberto.
+                  </span>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={allowPartialPayments}
+                  onChange={(e) => setAllowPartialPayments(e.target.checked)}
+                  className="mt-1 rounded text-[#0b1f3a] focus:ring-[#0b1f3a] h-4 w-4"
+                />
+                <div>
+                  <span className="text-xs font-bold text-slate-800 block">
+                    Permitir Pagamentos Parciais (Amortização)
+                  </span>
+                  <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
+                    Permite ao encarregado abater valores inferiores ao total da mensalidade.
+                  </span>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={blockExamsWithDebt}
+                  onChange={(e) => setBlockExamsWithDebt(e.target.checked)}
+                  className="mt-1 rounded text-rose-600 focus:ring-rose-500 h-4 w-4"
+                />
+                <div>
+                  <span className="text-xs font-bold text-slate-800 block">
+                    Aviso Prévio em Época de Exames
+                  </span>
+                  <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
+                    Exibe alerta de situação irregular nas folhas de chamada das provas trimestrais.
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200/70 text-amber-900 text-xs">
+              <div className="flex items-center gap-1.5 font-bold mb-1">
+                <span className="material-symbols-outlined text-amber-700 text-sm">info</span>
+                Regulamento Escolar MED
+              </div>
+              De acordo com a Lei de Bases do Sistema de Educação e Ensino de Angola, o atraso no pagamento de propinas não pode impedir o estudante de assistir às aulas presenciais regulares.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 2: TABELA DE PROPINAS POR NÍVEL / CICLO */}
+      {activeSubSection === 'tabela' && (
+        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-emerald-600 text-lg">price_check</span>
+                Tabela Oficial de Mensalidades por Nível de Ensino (Angola)
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Valores base em Kwanzas (Kz) para matrícula, confirmação e mensalidade regular de cada ciclo.
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-3 py-1.5 rounded-xl">
+              Moeda: <strong>Kwanzas (Kz / AOA)</strong>
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-3.5 px-4">Subsistema / Nível de Ensino</th>
+                  <th className="py-3.5 px-4">Classes / Abrangência</th>
+                  <th className="py-3.5 px-4 text-right">Matrícula (Kz)</th>
+                  <th className="py-3.5 px-4 text-right">Confirmação (Kz)</th>
+                  <th className="py-3.5 px-4 text-right">Propina Mensal (Kz)</th>
+                  <th className="py-3.5 px-4 text-center">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {tuitionRows.map((row) => (
+                  <tr key={row.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3.5 px-4">
+                      <div className="font-bold text-slate-900 text-xs">{row.levelName}</div>
+                      <div className="text-[11px] text-slate-500">{row.cycle}</div>
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium text-[11px]">
+                        {row.grades}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <input
+                        type="number"
+                        min={0}
+                        step={500}
+                        value={row.matriculaKz}
+                        onChange={(e) => handleUpdateTuitionRow(row.id, 'matriculaKz', Number(e.target.value))}
+                        className="w-28 px-2.5 py-1 text-right bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <input
+                        type="number"
+                        min={0}
+                        step={500}
+                        value={row.confirmacaoKz}
+                        onChange={(e) => handleUpdateTuitionRow(row.id, 'confirmacaoKz', Number(e.target.value))}
+                        className="w-28 px-2.5 py-1 text-right bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <input
+                        type="number"
+                        min={0}
+                        step={500}
+                        value={row.monthlyTuitionKz}
+                        onChange={(e) => handleUpdateTuitionRow(row.id, 'monthlyTuitionKz', Number(e.target.value))}
+                        className="w-32 px-2.5 py-1 text-right bg-emerald-50 border border-emerald-300 rounded-lg text-xs font-bold text-emerald-900 focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </td>
+                    <td className="py-3.5 px-4 text-center">
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        {formatKz(row.monthlyTuitionKz)}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div className="text-xs text-slate-600">
+              Estes valores serão aplicados automaticamente ao matricular novos alunos e na emissão em lote das faturas mensais do ano letivo <strong>{settings.currentAcademicYear || '2024/2025'}</strong>.
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveAllFinancial}
+              className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg transition-colors shadow-xs"
+            >
+              Aplicar Tabela
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SECTION 3: CONTAS BANCÁRIAS & COORDENADAS IBAN */}
+      {activeSubSection === 'bancos' && (
+        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-indigo-600 text-lg">account_balance</span>
+                Contas Bancárias & Coordenadas para Depósito / Transferência
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Coordenadas impressas nas faturas-recibo e disponibilizadas aos encarregados para liquidação de propinas (Bancos de Angola).
+              </p>
+            </div>
+            <button
+              type="button"
+              id="btn-add-bank-account"
+              onClick={() => setShowAddBankModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#0b1f3a] hover:bg-[#15345d] text-white text-xs font-bold rounded-xl transition-all shadow-xs"
+            >
+              <span className="material-symbols-outlined text-base">add</span>
+              Nova Conta Bancária
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {bankAccounts.map((bank) => (
+              <div
+                key={bank.id}
+                className={`p-5 rounded-2xl border transition-all flex flex-col justify-between gap-4 ${
+                  bank.active
+                    ? 'bg-slate-50/70 border-slate-300 shadow-xs'
+                    : 'bg-slate-100/50 border-slate-200 opacity-60'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-bold text-sm text-[#0b1f3a] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-indigo-700 text-lg">account_balance</span>
+                      {bank.bankName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleBank(bank.id)}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        bank.active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                      }`}
+                    >
+                      {bank.active ? 'Em Uso' : 'Inativo'}
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-semibold uppercase block">Titular da Conta</span>
+                      <span className="font-medium text-slate-800">{bank.accountHolder}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-semibold uppercase block">Número de Conta</span>
+                      <span className="font-mono font-bold text-slate-800">{bank.accountNumber}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-semibold uppercase block">IBAN Oficial (Angola)</span>
+                      <span className="font-mono font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded-md inline-block">
+                        {bank.iban}
+                      </span>
+                    </div>
+                    {bank.multicaixaEntity && (
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-semibold uppercase block">Entidade Multicaixa</span>
+                        <span className="font-mono font-bold text-slate-700">{bank.multicaixaEntity}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200/80">
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteBank(bank.id)}
+                    className="text-xs text-rose-600 hover:text-rose-800 font-semibold flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-sm">delete</span>
+                    Remover
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         </div>
-        <span className="text-slate-500 text-[11px]">
-          Exibindo <strong>{visibleTuitionRows.length}</strong> tabelas de mensalidade
-        </span>
-      </div>
+      )}
 
-      {/* Section 1: Tabela de Mensalidades por Nível */}
-      <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-          <div>
-            <h3 className="font-headline text-base lg:text-lg font-bold text-slate-900">
-              1. Tabela Base de Mensalidades / Propinas por Ciclo e Turno
+      {/* SECTION 5: REGIME FISCAL & ENQUADRAMENTO AGT */}
+      {activeSubSection === 'fiscal' && (
+        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col gap-6">
+          <div className="border-b border-slate-100 pb-4">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <span className="material-symbols-outlined text-indigo-700 text-lg">verified</span>
+              Regime Fiscal, Isenção de IVA & Conformidade AGT
             </h3>
-            <p className="text-xs text-slate-500">
-              Valores expressos em Kwanzas (Kz), cobrados mensalmente de Setembro a Julho (10 prestações).
+            <p className="text-xs text-slate-500 mt-0.5">
+              Parâmetros para faturamento eletrónico, relatórios SAF-T (AO) e certificação de software de gestão escolar.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleSaveAllFinance}
-            className="px-3.5 py-2 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs self-start cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[16px]">save</span>
-            <span>Guardar Tabela</span>
-          </button>
-        </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-100">
-                <th className="py-3 px-4 rounded-l-lg">Ciclo / Nível de Ensino</th>
-                <th className="py-3 px-4">Classes Abrangidas</th>
-                <th className="py-3 px-4">Turno Matutino</th>
-                <th className="py-3 px-4">Turno Vespertino</th>
-                <th className="py-3 px-4">Turno Noturno / Pós-Laboral</th>
-                <th className="py-3 px-4 text-right rounded-r-lg">Ação</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
-              {visibleTuitionRows.map((row) => (
-                <tr key={row.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-2.5">
-                      {row.icon && (
-                        <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-[#0b1f3a] shrink-0">
-                          <span className="material-symbols-outlined text-[16px]">{row.icon}</span>
-                        </div>
-                      )}
-                      <span className="font-semibold text-slate-900">{row.nivel}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-4 text-slate-600">{row.classes}</td>
-                  <td className="py-3 px-4 font-mono font-bold text-slate-900">{row.matutino} Kz</td>
-                  <td className="py-3 px-4 font-mono font-bold text-slate-900">{row.vespertino} Kz</td>
-                  <td className="py-3 px-4 font-mono text-slate-600">{row.noturno}</td>
-                  <td className="py-3 px-4 text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleStartEditRow(row)}
-                      className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-[#0b1f3a] hover:text-white text-[#0b1f3a] font-bold text-xs transition-colors cursor-pointer"
-                    >
-                      Editar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Section 2: Outras Taxas & Emolumentos da Secretaria */}
-      <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-          <div>
-            <h3 className="font-headline text-base lg:text-lg font-bold text-slate-900">
-              2. Outras Taxas & Emolumentos da Secretaria
-            </h3>
-            <p className="text-xs text-slate-500">
-              Custos operacionais de emissão documental, certidões, cartões de acesso e confirmações.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setEditingEmolumento(null);
-              setNovoNome('');
-              setNovoValor('');
-              setNovoTipo('Por Pedido');
-              setNovoPrazo('');
-              setShowModal(true);
-            }}
-            className="px-3.5 py-2 rounded-xl bg-[#0b1f3a] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs self-start cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[16px]">add</span>
-            <span>Adicionar Novo Emolumento</span>
-          </button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="bg-slate-50 text-slate-500 uppercase tracking-wider font-bold border-b border-slate-100">
-                <th className="py-3 px-4 rounded-l-lg">Código</th>
-                <th className="py-3 px-4">Designação do Serviço / Emolumento</th>
-                <th className="py-3 px-4">Valor Fixado (Kz)</th>
-                <th className="py-3 px-4">Regime de Cobrança</th>
-                <th className="py-3 px-4">Prazo de Emissão</th>
-                <th className="py-3 px-4 text-right rounded-r-lg">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
-              {emolumentos.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-3 px-4 font-mono font-bold text-slate-500">{item.id}</td>
-                  <td className="py-3 px-4 font-semibold text-slate-900">{item.nome}</td>
-                  <td className="py-3 px-4 font-mono font-bold text-slate-900">{item.valor} Kz</td>
-                  <td className="py-3 px-4">
-                    <span className="px-2 py-0.5 rounded bg-slate-100 font-medium text-slate-700 text-[11px]">
-                      {item.tipo}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-slate-500">{item.prazo}</td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleStartEditEmolumento(item)}
-                        className="text-[#0b1f3a] hover:text-[#ac332b] font-bold p-1 cursor-pointer"
-                        title="Editar emolumento"
-                      >
-                        <span className="material-symbols-outlined text-[17px]">edit</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEmolumentoToDelete(item)}
-                        className="text-slate-400 hover:text-red-600 font-bold p-1 cursor-pointer"
-                        title="Eliminar emolumento"
-                      >
-                        <span className="material-symbols-outlined text-[17px]">delete</span>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Section 3: Prazos, Multas & Descontos (Formulário Editável) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Prazos & Multas */}
-        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col gap-4">
-          <div className="flex items-center gap-2.5">
-            <span className="material-symbols-outlined text-[#ac332b] text-[22px]">alarm</span>
-            <h3 className="font-headline text-base font-bold text-slate-900">
-              Prazos de Pagamento & Multas de Mora
-            </h3>
-          </div>
-
-          <div className="flex flex-col gap-3 text-xs">
-            <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-              <div>
-                <div className="font-bold text-slate-900">Dia Limite de Vencimento</div>
-                <div className="text-slate-500 text-[11px]">Prazo regular sem incidência de multa</div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-slate-500">Dia</span>
-                <input
-                  type="number"
-                  min="1"
-                  max="28"
-                  value={paymentDueDay}
-                  onChange={(e) => setPaymentDueDay(e.target.value)}
-                  className="w-16 px-2.5 py-1 text-center bg-white border border-slate-300 rounded-lg font-bold text-slate-900 outline-none focus:ring-1 focus:ring-[#0b1f3a]"
-                />
-                <span className="text-slate-500">de cada mês</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-5 rounded-xl bg-slate-50 border border-slate-200 space-y-4">
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                Enquadramento em Imposto sobre o Valor Acrescentado (IVA)
+              </h4>
+              <div className="space-y-2 text-xs text-slate-700">
+                <div className="flex justify-between py-1.5 border-b border-slate-200">
+                  <span className="text-slate-500">Regime Geral da Escola:</span>
+                  <span className="font-bold text-emerald-800">Isenção Legal (Art. 12.º do CIVA)</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-200">
+                  <span className="text-slate-500">Código de Motivo de Isenção:</span>
+                  <span className="font-mono font-bold text-slate-800">M02 - Isento Artigo 12.º do CIVA</span>
+                </div>
+                <div className="flex justify-between py-1.5 border-b border-slate-200">
+                  <span className="text-slate-500">NIF da Instituição:</span>
+                  <span className="font-mono font-bold text-slate-900">{settings.nif || '5417089901'}</span>
+                </div>
+                <div className="flex justify-between py-1.5">
+                  <span className="text-slate-500">Moeda Base de Emissão:</span>
+                  <span className="font-bold text-slate-800">AOA (Kwanzas)</span>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-              <div>
-                <div className="font-bold text-slate-900">Taxa de Multa Acumulada</div>
-                <div className="text-slate-500 text-[11px]">Percentual máximo de agravamento após vencimento</div>
+            <div className="p-5 rounded-xl bg-indigo-50/50 border border-indigo-200 space-y-3">
+              <div className="flex items-center gap-2 text-indigo-950 font-bold text-xs">
+                <span className="material-symbols-outlined text-indigo-700 text-lg">shield_locked</span>
+                Certificação de Faturação & Auditoria
               </div>
-              <div className="flex items-center gap-1">
-                <input
-                  type="text"
-                  value={lateFeePercent}
-                  onChange={(e) => setLateFeePercent(e.target.value)}
-                  className="w-16 px-2.5 py-1 text-center bg-white border border-slate-300 rounded-lg font-bold text-[#ac332b] outline-none focus:ring-1 focus:ring-[#0b1f3a]"
-                />
-                <span className="font-bold text-slate-700">%</span>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                As faturas-recibo de propinas e emolumentos emitidas pelo BandMed possuem hash criptográfico, numeração sequencial cronológica ininterrupta e conformidade com as diretrizes da Administração Geral Tributária (AGT) da República de Angola.
+              </p>
+              <div className="p-3 bg-white rounded-lg border border-indigo-100 text-[11px] text-slate-600">
+                <strong>Nota de Emissão:</strong> Cada documento gerado traz expressamente a menção: <em>"Isento de IVA nos termos do Artigo 12.º do CIVA - Educação e Ensino".</em>
               </div>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Descontos e Fraternidade */}
-        <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col gap-4">
-          <div className="flex items-center gap-2.5">
-            <span className="material-symbols-outlined text-[#0b1f3a] text-[22px]">loyalty</span>
-            <h3 className="font-headline text-base font-bold text-slate-900">
-              Política de Descontos e Fraternidade
-            </h3>
-          </div>
-
-          <div className="flex flex-col gap-3 text-xs">
-            <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-              <div>
-                <div className="font-bold text-slate-900">Desconto por Irmãos (2.º e 3.º Filhos)</div>
-                <div className="text-slate-500 text-[11px]">Aplicado na mensalidade de menor valor</div>
-              </div>
-              <div className="flex items-center gap-1">
-                <input
-                  type="text"
-                  value={siblingDiscountPercent}
-                  onChange={(e) => setSiblingDiscountPercent(e.target.value)}
-                  className="w-16 px-2.5 py-1 text-center bg-white border border-slate-300 rounded-lg font-bold text-emerald-800 outline-none focus:ring-1 focus:ring-[#0b1f3a]"
-                />
-                <span className="font-bold text-slate-700">%</span>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100">
-              <div>
-                <div className="font-bold text-slate-900">Liquidação Anual Integral Antecipada</div>
-                <div className="text-slate-500 text-[11px]">Pagamento adiantado de todas as mensalidades do ano</div>
-              </div>
-              <div className="flex items-center gap-1">
-                <input
-                  type="text"
-                  value={discountPercent}
-                  onChange={(e) => setDiscountPercent(e.target.value)}
-                  className="w-16 px-2.5 py-1 text-center bg-white border border-slate-300 rounded-lg font-bold text-emerald-800 outline-none focus:ring-1 focus:ring-[#0b1f3a]"
-                />
-                <span className="font-bold text-slate-700">%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer com Botão Guardar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-slate-200 shadow-xs">
-        <div className="flex items-center gap-2 text-slate-500 text-xs">
-          <span className="material-symbols-outlined text-slate-400">price_check</span>
-          <span>
-            Regras de faturação ativas com vencimento no dia <strong>{paymentDueDay}</strong> de cada mês.
-          </span>
-        </div>
-        <div className="flex items-center gap-2 justify-end">
-          <button
-            type="button"
-            onClick={handleSaveAllFinance}
-            className="px-6 py-2.5 rounded-xl bg-[#0b1f3a] text-white font-bold text-xs hover:bg-[#7a0c0c] transition-colors shadow-md flex items-center gap-2 cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[18px]">save</span>
-            <span>Guardar</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Modal Editar Propinas de uma Linha */}
-      {editingRow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full border border-slate-200 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-headline font-bold text-slate-900 text-sm lg:text-base">
-                Editar Tabela: {editingRow.nivel}
+      {/* Modal: Adicionar Conta Bancária */}
+      {showAddBankModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-indigo-700 text-lg">account_balance</span>
+                Adicionar Conta Bancária Institucional
               </h3>
               <button
                 type="button"
-                onClick={() => setEditingRow(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                onClick={() => setShowAddBankModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
               >
-                <span className="material-symbols-outlined text-[20px]">close</span>
+                <span className="material-symbols-outlined text-lg">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleSaveEditRow} className="mt-4 space-y-4 text-xs">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-slate-600 text-[11px]">
-                Classes abrangidas: <strong>{editingRow.classes}</strong>
-              </div>
-
+            <form onSubmit={handleAddBank} className="flex flex-col gap-4">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Turno Matutino (Kz)</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Nome do Banco *</label>
                 <input
                   type="text"
                   required
-                  placeholder="ex: 65.000"
-                  value={editMatutino}
-                  onChange={(e) => setEditMatutino(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono outline-none focus:ring-1 focus:ring-[#0b1f3a]"
+                  value={newBankName}
+                  onChange={(e) => setNewBankName(e.target.value)}
+                  placeholder="Ex: Banco Angolano de Investimentos (BAI)"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Turno Vespertino (Kz)</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Titular da Conta</label>
+                <input
+                  type="text"
+                  value={newBankHolder}
+                  onChange={(e) => setNewBankHolder(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Número de Conta</label>
+                <input
+                  type="text"
+                  value={newBankAccountNumber}
+                  onChange={(e) => setNewBankAccountNumber(e.target.value)}
+                  placeholder="Ex: 5544332211"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">IBAN Oficial (Angola - AO06...) *</label>
                 <input
                   type="text"
                   required
-                  placeholder="ex: 65.000"
-                  value={editVespertino}
-                  onChange={(e) => setEditVespertino(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono outline-none focus:ring-1 focus:ring-[#0b1f3a]"
+                  value={newBankIban}
+                  onChange={(e) => setNewBankIban(e.target.value)}
+                  placeholder="AO06.0040.0000.1122.3344.5501.2"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono font-semibold focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Regime Noturno / Especial (Kz ou —)</label>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Entidade Multicaixa (Opcional)</label>
                 <input
                   type="text"
-                  placeholder="ex: 70.000 ou —"
-                  value={editNoturno}
-                  onChange={(e) => setEditNoturno(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono outline-none focus:ring-1 focus:ring-[#0b1f3a]"
+                  value={newBankEntity}
+                  onChange={(e) => setNewBankEntity(e.target.value)}
+                  placeholder="Ex: 00342"
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg font-mono focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-2 mt-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setEditingRow(null)}
-                  className="px-3.5 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 cursor-pointer"
+                  onClick={() => setShowAddBankModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-[#0b1f3a] text-white font-bold hover:bg-[#7a0c0c] transition-colors cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold bg-[#0b1f3a] text-white rounded-lg hover:bg-[#15345d]"
                 >
-                  Salvar Alterações
+                  Salvar Conta
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Novo / Editar Emolumento */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full border border-slate-200 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-headline font-bold text-slate-900 text-sm lg:text-base">
-                {editingEmolumento ? 'Editar Emolumento' : 'Registar Novo Emolumento'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowModal(false);
-                  setEditingEmolumento(null);
-                }}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEmolumento} className="mt-4 space-y-3.5 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Designação do Serviço</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ex: Certificado de Habilitações com Notas"
-                  value={novoNome}
-                  onChange={(e) => setNovoNome(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-[#0b1f3a]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Valor Fixado em Kwanzas (Kz)</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ex: 15.000"
-                  value={novoValor}
-                  onChange={(e) => setNovoValor(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono outline-none focus:ring-1 focus:ring-[#0b1f3a]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Regime de Cobrança</label>
-                <select
-                  value={novoTipo}
-                  onChange={(e) => setNovoTipo(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-[#0b1f3a]"
-                >
-                  <option value="Por Pedido">Por Pedido</option>
-                  <option value="Taxa Única">Taxa Única</option>
-                  <option value="Por Exame">Por Exame</option>
-                  <option value="Semestral">Semestral</option>
-                  <option value="Anual">Anual</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Prazo de Emissão / Resposta</label>
-                <input
-                  type="text"
-                  placeholder="ex: 48 horas úteis"
-                  value={novoPrazo}
-                  onChange={(e) => setNovoPrazo(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-[#0b1f3a]"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModal(false);
-                    setEditingEmolumento(null);
-                  }}
-                  className="px-3.5 py-2 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 rounded-xl bg-[#0b1f3a] text-white font-bold hover:bg-[#7a0c0c] transition-colors cursor-pointer"
-                >
-                  {editingEmolumento ? 'Salvar Emolumento' : 'Adicionar Emolumento'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Eliminar Emolumento com Padrão de Eliminar Turma */}
-      {emolumentoToDelete && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-none max-w-md w-full p-6 border border-slate-300 shadow-2xl">
-            <div className="w-12 h-12 rounded-none bg-red-100 text-red-700 flex items-center justify-center mx-auto mb-4 border border-red-300">
-              <span className="material-symbols-outlined text-[28px]">delete_forever</span>
-            </div>
-            <h3 className="font-headline text-lg font-bold text-slate-900 text-center">
-              Eliminar Emolumento da Base de Dados?
-            </h3>
-            <p className="text-xs text-slate-600 text-center mt-2 leading-relaxed">
-              Tem a certeza de que deseja eliminar o emolumento <strong>{emolumentoToDelete.nome}</strong> (Valor: {emolumentoToDelete.valor} Kz)? Esta ação é definitiva na base de dados.
-            </p>
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setEmolumentoToDelete(null)}
-                className="px-4 py-2 rounded-none bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs border border-slate-300 cursor-pointer transition-colors"
-                type="button"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const emo = emolumentoToDelete;
-                  setEmolumentoToDelete(null);
-                  await runGlobalOperation(
-                    async () => {
-                      const updated = emolumentos.filter((e) => e.id !== emo.id);
-                      setEmolumentos(updated);
-                      if (onUpdateSettings) {
-                        onUpdateSettings({ emolumentos: updated });
-                      }
-                      dbService.updateSettings({ ...settings, emolumentos: updated });
-                    },
-                    {
-                      requiredRule: 'config.edit',
-                      userRole: currentUserRole,
-                      loadingMessage: `A eliminar emolumento ${emo.nome}...`,
-                      successMessage: 'Operação feita com sucesso!'
-                    }
-                  );
-                }}
-                className="px-5 py-2.5 rounded-none bg-[#b91c1c] hover:bg-[#7a0c0c] text-white font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors shadow-none border-none"
-              >
-                <span className="material-symbols-outlined text-[16px]">delete</span>
-                <span>Sim, Eliminar Emolumento</span>
-              </button>
-            </div>
           </div>
         </div>
       )}

@@ -25,6 +25,8 @@ interface NavbarProps {
   onLogout: () => void;
   onNavigate: (view: string, targetId?: string) => void;
   db: SchoolDatabase;
+  isDesktopSidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -36,14 +38,33 @@ export const Navbar: React.FC<NavbarProps> = ({
   onResetData,
   onLogout,
   onNavigate,
-  db
+  db,
+  isDesktopSidebarOpen = true,
+  onToggleSidebar
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [hasRecentAlert, setHasRecentAlert] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const notificationsContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  };
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -173,20 +194,35 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-[#0b1f3a] text-white border-b border-slate-800 z-30 flex items-center justify-between px-4 lg:px-8 shadow-md">
-      {/* Left: Mobile hamburger & Search bar (No border, no background fill) */}
+    <header className={`fixed top-0 left-0 right-0 h-16 bg-[#0b1f3a] text-white border-b border-slate-800 z-30 flex items-center justify-between px-4 lg:px-8 shadow-md transition-all duration-300 ${
+      isDesktopSidebarOpen ? 'lg:left-64' : 'lg:left-0'
+    }`}>
+      {/* Left: Hamburger & Search bar (No border, no background fill) */}
       <div className="flex items-center gap-3 flex-1 max-w-xl">
+        {/* Left: Menu button (três barras) para abrir menu lateral mesmo em tela cheia */}
         <button
-          onClick={onOpenMobileMenu}
-          className="p-2 rounded-lg text-blue-200 hover:text-white hover:bg-white/10 lg:hidden cursor-pointer"
-          aria-label="Abrir menu"
+          type="button"
+          onClick={() => {
+            if (onToggleSidebar) {
+              onToggleSidebar();
+            } else {
+              onOpenMobileMenu();
+            }
+          }}
+          className={`p-2 rounded-lg cursor-pointer flex items-center justify-center shrink-0 transition-all text-blue-200 hover:text-white hover:bg-white/10 ${
+            isDesktopSidebarOpen ? 'lg:hidden' : 'flex'
+          }`}
+          aria-label="Abrir menu lateral"
+          title="Abrir menu lateral"
         >
-          <span className="material-symbols-outlined text-[24px]">menu</span>
+          <span className="material-symbols-outlined text-[24px]">
+            menu
+          </span>
         </button>
 
-        {/* Search Box: Smooth border appears when clicking to type */}
+        {/* Search Box: Borderless clean design */}
         <div ref={searchContainerRef} className="relative w-full max-w-md hidden sm:block">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-transparent focus-within:border-white/40 transition-all duration-200">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-0 focus-within:ring-0 transition-all duration-200">
             <span className="material-symbols-outlined text-blue-300 text-[20px] shrink-0">
               search
             </span>
@@ -382,9 +418,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       {/* Right: Actions, Academic Year Combobox & User Profile (No borders, no fill) */}
       <div className="flex items-center gap-3 lg:gap-4">
         {/* Academic Year Combobox: No borders, no background fill, full year switching */}
-        <div className="hidden lg:flex items-center gap-1.5 text-xs text-blue-100">
-          <span className="material-symbols-outlined text-amber-400 text-[18px]">calendar_today</span>
-          <span className="text-blue-200 font-medium">Ano Letivo:</span>
+        <div className="hidden lg:flex items-center text-xs text-blue-100">
           <select
             value={currentAcademicYear}
             onChange={(e) => onAcademicYearChange(e.target.value)}
@@ -399,19 +433,25 @@ export const Navbar: React.FC<NavbarProps> = ({
           </select>
         </div>
 
-        {/* Role Label: No borders, no fill */}
-        <div className="hidden sm:flex items-center gap-1.5 text-xs text-blue-100">
-          <span className="material-symbols-outlined text-[17px] text-amber-400">verified_user</span>
+        {/* User Name: Displays current user name */}
+        <div className="hidden sm:flex items-center text-xs text-blue-100">
           <span className="font-semibold text-white tracking-wide">
-            {currentUser.role === 'admin'
-              ? 'Administrador'
-              : currentUser.role === 'professor'
-              ? 'Docente'
-              : currentUser.role === 'aluno'
-              ? 'Estudante'
-              : 'Encarregado'}
+            {currentUser.name}
           </span>
         </div>
+
+        {/* Fullscreen Toggle Button */}
+        <button
+          type="button"
+          onClick={toggleFullscreen}
+          className="p-2 rounded-lg text-blue-200 hover:text-white hover:bg-white/10 cursor-pointer hidden md:flex items-center justify-center transition-colors"
+          title={isFullscreen ? 'Sair do Modo de Ecrã Inteiro' : 'Modo de Ecrã Inteiro (Tela Cheia)'}
+          aria-label="Alternar Ecrã Inteiro"
+        >
+          <span className="material-symbols-outlined text-[20px]">
+            {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+          </span>
+        </button>
 
         {/* Notifications Icon with Real-Time Badge */}
         <div className="relative" ref={notificationsContainerRef}>

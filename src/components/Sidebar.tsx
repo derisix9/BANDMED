@@ -7,6 +7,8 @@ interface SidebarProps {
   currentUserRole: UserRole;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
+  isDesktopOpen?: boolean;
+  onToggleDesktop?: (open?: boolean) => void;
   onLogout?: () => void;
 }
 
@@ -16,6 +18,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentUserRole,
   isMobileOpen,
   onCloseMobile,
+  isDesktopOpen = true,
+  onToggleDesktop,
   onLogout
 }) => {
   const isAllowed = (roles: UserRole[]) => roles.includes(currentUserRole);
@@ -31,6 +35,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return currentView === viewId ? 'text-[#0b1f3a]' : 'text-slate-400 group-hover:text-white';
   };
 
+  const roleBadgeLabel: Record<UserRole, string> = {
+    admin: 'Admin',
+    director: 'Direção',
+    secretaria: 'Secretaria',
+    professor: 'Docente',
+    financeiro: 'Tesouraria',
+    aluno: 'Aluno',
+    encarregado: 'Encarregado'
+  };
+
   return (
     <>
       {/* Mobile Backdrop */}
@@ -41,10 +55,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Main Aside */}
+      {/* Main Aside - Supports desktop & fullscreen toggle with smooth transition */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 w-64 bg-[#0b1f3a] text-white z-50 flex flex-col justify-between shadow-2xl transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 w-64 bg-[#0b1f3a] text-white z-50 flex flex-col justify-between shadow-2xl transition-transform duration-300 ${
           isMobileOpen ? 'translate-x-0' : '-translate-x-full'
+        } ${
+          isDesktopOpen ? 'lg:translate-x-0' : 'lg:-translate-x-full'
         }`}
       >
         <div className="flex flex-col flex-1 overflow-y-auto">
@@ -62,16 +78,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="flex flex-col min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="font-extrabold text-base tracking-tight text-white font-headline">BANDMED</span>
-                  <span className="px-1.5 py-0.2 rounded text-[9px] uppercase font-bold tracking-wider bg-[#7a0c0c] text-white">
-                    {currentUserRole === 'admin' ? 'Admin' : currentUserRole === 'professor' ? 'Docente' : currentUserRole === 'aluno' ? 'Aluno' : 'Tutor'}
+                  <span className="px-1.5 py-0.5 rounded text-[9px] uppercase font-bold tracking-wider bg-[#7a0c0c] text-white">
+                    {roleBadgeLabel[currentUserRole] || 'Utilizador'}
                   </span>
                 </div>
                 <span className="text-[10px] text-slate-400 tracking-wider uppercase font-medium">Plataforma Académica</span>
               </div>
             </div>
             <button
-              onClick={onCloseMobile}
-              className="p-1 rounded text-slate-400 hover:text-white lg:hidden"
+              onClick={() => {
+                if (onToggleDesktop) onToggleDesktop(false);
+                onCloseMobile();
+              }}
+              className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/15 bg-white/5 cursor-pointer flex items-center justify-center transition-colors"
+              title="Fechar menu lateral"
+              aria-label="Fechar menu lateral"
             >
               <span className="material-symbols-outlined text-[20px]">close</span>
             </button>
@@ -79,119 +100,169 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Navigation Items */}
           <nav className="p-3 space-y-4 flex-1">
-            {/* GERAL */}
-            <div>
-              <span className="px-3 text-[10px] uppercase font-bold tracking-widest text-slate-400 block mb-1">
-                GERAL
-              </span>
-              <button
-                onClick={() => { onNavigate('dashboard'); onCloseMobile(); }}
-                className={`w-full text-left ${navItemClass('dashboard')}`}
-              >
-                <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('dashboard')}`}>
-                  dashboard
+            {/* GERAL: Dashboard ONLY for Admin, Direção Pedagógica and Secretaria. (Docentes, Alunos e Encarregados NÃO TÊM ACESSO AO DASHBOARD) */}
+            {isAllowed(['admin', 'director', 'secretaria']) && (
+              <div>
+                <span className="px-3 text-[10px] uppercase font-bold tracking-widest text-slate-400 block mb-1">
+                  GERAL
                 </span>
-                <span>Dashboard</span>
-              </button>
-            </div>
+                <button
+                  onClick={() => { onNavigate('dashboard'); onCloseMobile(); }}
+                  className={`w-full text-left cursor-pointer ${navItemClass('dashboard')}`}
+                >
+                  <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('dashboard')}`}>
+                    dashboard
+                  </span>
+                  <span>Dashboard</span>
+                </button>
+              </div>
+            )}
 
-            {/* ACADÉMICO */}
-            <div>
-              <span className="px-3 text-[10px] uppercase font-bold tracking-widest text-slate-400 block mb-1">
-                ACADÉMICO
-              </span>
-              <div className="space-y-1">
-                {isAllowed(['admin', 'professor']) && (
+            {/* SEÇÃO DO ESTUDANTE: APENAS PARA O PERFIL ALUNO */}
+            {currentUserRole === 'aluno' && (
+              <div>
+                <span className="px-3 text-[10px] uppercase font-bold tracking-widest text-amber-400 block mb-1">
+                  ÁREA DO ESTUDANTE
+                </span>
+                <div className="space-y-1">
+                  <button
+                    onClick={() => { onNavigate('aluno_notas'); onCloseMobile(); }}
+                    className={`w-full text-left cursor-pointer ${navItemClass('aluno_notas')}`}
+                  >
+                    <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('aluno_notas')}`}>
+                      assignment
+                    </span>
+                    <span>Suas Notas (Boletim)</span>
+                  </button>
+
+                  <button
+                    onClick={() => { onNavigate('aluno_financeiro'); onCloseMobile(); }}
+                    className={`w-full text-left cursor-pointer ${navItemClass('aluno_financeiro')}`}
+                  >
+                    <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('aluno_financeiro')}`}>
+                      account_balance_wallet
+                    </span>
+                    <span>Situação Financeira</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* SEÇÃO DO ENCARREGADO: APENAS SITUAÇÃO FINANCEIRA DO ESTUDANTE */}
+            {currentUserRole === 'encarregado' && (
+              <div>
+                <span className="px-3 text-[10px] uppercase font-bold tracking-widest text-amber-400 block mb-1">
+                  PORTAL DO ENCARREGADO
+                </span>
+                <div className="space-y-1">
+                  <button
+                    onClick={() => { onNavigate('encarregado_financeiro'); onCloseMobile(); }}
+                    className={`w-full text-left cursor-pointer ${navItemClass('encarregado_financeiro')}`}
+                  >
+                    <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('encarregado_financeiro')}`}>
+                      payments
+                    </span>
+                    <span>Situação Financeira do Estudante</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ACADÉMICO: Admin, Direção, Secretaria, Professor (Alunos e Encarregados NÃO TÊM ACESSO) */}
+            {isAllowed(['admin', 'director', 'secretaria', 'professor']) && (
+              <div>
+                <span className="px-3 text-[10px] uppercase font-bold tracking-widest text-slate-400 block mb-1">
+                  ACADÉMICO
+                </span>
+                <div className="space-y-1">
                   <button
                     onClick={() => { onNavigate('alunos'); onCloseMobile(); }}
-                    className={`w-full text-left ${navItemClass('alunos')}`}
+                    className={`w-full text-left cursor-pointer ${navItemClass('alunos')}`}
                   >
                     <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('alunos')}`}>
                       school
                     </span>
                     <span>Alunos</span>
                   </button>
-                )}
 
-                {isAllowed(['admin']) && (
-                  <button
-                    onClick={() => { onNavigate('professores'); onCloseMobile(); }}
-                    className={`w-full text-left ${navItemClass('professores')}`}
-                  >
-                    <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('professores')}`}>
-                      badge
-                    </span>
-                    <span>Professores</span>
-                  </button>
-                )}
+                  {isAllowed(['admin', 'director']) && (
+                    <button
+                      onClick={() => { onNavigate('professores'); onCloseMobile(); }}
+                      className={`w-full text-left cursor-pointer ${navItemClass('professores')}`}
+                    >
+                      <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('professores')}`}>
+                        badge
+                      </span>
+                      <span>Professores</span>
+                    </button>
+                  )}
 
-                {isAllowed(['admin', 'professor', 'aluno', 'encarregado']) && (
-                  <button
-                    onClick={() => { onNavigate('turmas'); onCloseMobile(); }}
-                    className={`w-full text-left ${navItemClass('turmas')}`}
-                  >
-                    <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('turmas')}`}>
-                      menu_book
-                    </span>
-                    <span>Turmas/Disciplinas</span>
-                  </button>
-                )}
+                  {isAllowed(['admin', 'director', 'secretaria']) && (
+                    <button
+                      onClick={() => { onNavigate('turmas'); onCloseMobile(); }}
+                      className={`w-full text-left cursor-pointer ${navItemClass('turmas')}`}
+                    >
+                      <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('turmas')}`}>
+                        menu_book
+                      </span>
+                      <span>Turmas/Disciplinas</span>
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* OPERACIONAL */}
-            <div>
-              <span className="px-3 text-[10px] uppercase font-bold tracking-widest text-slate-400 block mb-1">
-                OPERACIONAL
-              </span>
-              <div className="space-y-1">
-                {isAllowed(['admin', 'professor', 'aluno', 'encarregado']) && (
+            {/* OPERACIONAL: Assiduidade & Lançamento/Notas (Alunos e Encarregados NÃO TÊM ACESSO) */}
+            {isAllowed(['admin', 'director', 'secretaria', 'professor']) && (
+              <div>
+                <span className="px-3 text-[10px] uppercase font-bold tracking-widest text-slate-400 block mb-1">
+                  OPERACIONAL
+                </span>
+                <div className="space-y-1">
                   <button
                     onClick={() => { onNavigate('assiduidade'); onCloseMobile(); }}
-                    className={`w-full text-left ${navItemClass('assiduidade')}`}
+                    className={`w-full text-left cursor-pointer ${navItemClass('assiduidade')}`}
                   >
                     <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('assiduidade')}`}>
                       event_available
                     </span>
                     <span>Assiduidade Diária</span>
                   </button>
-                )}
 
-                {isAllowed(['admin', 'professor', 'aluno', 'encarregado']) && (
                   <button
                     onClick={() => { onNavigate('pautas'); onCloseMobile(); }}
-                    className={`w-full text-left ${navItemClass('pautas')}`}
+                    className={`w-full text-left cursor-pointer ${navItemClass('pautas')}`}
                   >
                     <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('pautas')}`}>
                       assignment
                     </span>
                     <span>Lançamento/Notas</span>
                   </button>
-                )}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* FINANCEIRO */}
-            <div>
-              <span className="px-3 text-[10px] uppercase font-bold tracking-widest text-slate-400 block mb-1">
-                FINANCEIRO
-              </span>
-              <div className="space-y-1">
-                {isAllowed(['admin', 'encarregado', 'aluno']) && (
+            {/* FINANCEIRO GLOBAL: Apenas Admin, Secretaria e Financeiro (Alunos e Professores NÃO TÊM ACESSO A ESTA ABA GLOBAL) */}
+            {isAllowed(['admin', 'secretaria', 'financeiro']) && (
+              <div>
+                <span className="px-3 text-[10px] uppercase font-bold tracking-widest text-slate-400 block mb-1">
+                  FINANCEIRO
+                </span>
+                <div className="space-y-1">
                   <button
                     onClick={() => { onNavigate('propinas'); onCloseMobile(); }}
-                    className={`w-full text-left ${navItemClass('propinas')}`}
+                    className={`w-full text-left cursor-pointer ${navItemClass('propinas')}`}
                   >
                     <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('propinas')}`}>
                       payments
                     </span>
                     <span>Propinas/Pagamentos</span>
                   </button>
-                )}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* MURAL & BIBLIOTECA */}
+            {/* MURAL & BIBLIOTECA: Todos os perfis (incluindo Estudante e Encarregado) têm acesso */}
             <div>
               <span className="px-3 text-[10px] uppercase font-bold tracking-widest text-slate-400 block mb-1">
                 MURAL & BIBLIOTECA
@@ -199,7 +270,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className="space-y-1">
                 <button
                   onClick={() => { onNavigate('mural_biblioteca'); onCloseMobile(); }}
-                  className={`w-full text-left ${navItemClass('mural_biblioteca')}`}
+                  className={`w-full text-left cursor-pointer ${navItemClass('mural_biblioteca')}`}
                 >
                   <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('mural_biblioteca')}`}>
                     campaign
@@ -209,37 +280,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
 
-            {/* ESTATÍSTICA & SISTEMA */}
-            <div>
-              <span className="px-3 text-[10px] uppercase font-bold tracking-widest text-slate-400 block mb-1">
-                ESTATÍSTICA & SISTEMA
-              </span>
-              <div className="space-y-1">
-                {isAllowed(['admin', 'professor', 'encarregado']) && (
+            {/* ESTATÍSTICA & SISTEMA: Relatórios e Configurações */}
+            {isAllowed(['admin', 'director', 'secretaria', 'professor']) && (
+              <div>
+                <span className="px-3 text-[10px] uppercase font-bold tracking-widest text-slate-400 block mb-1">
+                  ESTATÍSTICA & SISTEMA
+                </span>
+                <div className="space-y-1">
                   <button
                     onClick={() => { onNavigate('relatorios'); onCloseMobile(); }}
-                    className={`w-full text-left ${navItemClass('relatorios')}`}
+                    className={`w-full text-left cursor-pointer ${navItemClass('relatorios')}`}
                   >
                     <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('relatorios')}`}>
                       bar_chart
                     </span>
                     <span>Relatórios</span>
                   </button>
-                )}
 
-                {isAllowed(['admin']) && (
-                  <button
-                    onClick={() => { onNavigate('configuracoes'); onCloseMobile(); }}
-                    className={`w-full text-left ${navItemClass('configuracoes')}`}
-                  >
-                    <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('configuracoes')}`}>
-                      settings
-                    </span>
-                    <span>Configurações</span>
-                  </button>
-                )}
+                  {isAllowed(['admin', 'director']) && (
+                    <button
+                      onClick={() => { onNavigate('configuracoes'); onCloseMobile(); }}
+                      className={`w-full text-left cursor-pointer ${navItemClass('configuracoes')}`}
+                    >
+                      <span className={`material-symbols-outlined text-[20px] ${navItemIconClass('configuracoes')}`}>
+                        settings
+                      </span>
+                      <span>Configurações</span>
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </nav>
         </div>
 

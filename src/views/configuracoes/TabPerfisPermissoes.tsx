@@ -56,7 +56,14 @@ export const TabPerfisPermissoes: React.FC<TabPerfisPermissoesProps> = ({
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const canEditPermissions = currentUserRole === 'admin';
+
   const togglePermission = (index: number) => {
+    if (!canEditPermissions) {
+      triggerToast('A Área Pedagógica não pode alterar permissões. Apenas o Administrador Geral possui este privilégio.');
+      return;
+    }
+
     const updatedRole = { ...currentRole };
     updatedRole.permissions[index].allowed = !updatedRole.permissions[index].allowed;
     const newRolesState = {
@@ -68,6 +75,7 @@ export const TabPerfisPermissoes: React.FC<TabPerfisPermissoesProps> = ({
       onUpdateSettings({ rolePermissions: newRolesState });
     }
     dbService.updateSettings({ rolePermissions: newRolesState });
+    triggerToast('Permissão atualizada com sucesso!');
   };
 
   return (
@@ -160,6 +168,16 @@ export const TabPerfisPermissoes: React.FC<TabPerfisPermissoesProps> = ({
         </div>
       </div>
 
+      {/* Warning Notice if not Admin */}
+      {!canEditPermissions && (
+        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold flex items-center gap-2">
+          <span className="material-symbols-outlined text-amber-700 text-lg">lock</span>
+          <span>
+            <strong>Apenas Leitura:</strong> A Área Pedagógica não tem permissão para alterar permissões do sistema. Apenas o Administrador Geral pode modificar a matriz de permissões.
+          </span>
+        </div>
+      )}
+
       {/* Granular Permission Table */}
       <section className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
@@ -207,11 +225,12 @@ export const TabPerfisPermissoes: React.FC<TabPerfisPermissoesProps> = ({
                   <td className="py-3 px-4 text-right">
                     <button
                       type="button"
+                      disabled={!canEditPermissions}
                       onClick={() => togglePermission(idx)}
-                      className={`w-9 h-5 rounded-full transition-colors relative cursor-pointer ml-auto ${
-                        perm.allowed ? 'bg-[#0b1f3a]' : 'bg-slate-300'
-                      }`}
-                      title={perm.allowed ? 'Clique para bloquear' : 'Clique para autorizar'}
+                      className={`w-9 h-5 rounded-full transition-colors relative ml-auto ${
+                        !canEditPermissions ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+                      } ${perm.allowed ? 'bg-[#0b1f3a]' : 'bg-slate-300'}`}
+                      title={!canEditPermissions ? 'Apenas o Administrador pode alterar permissões' : perm.allowed ? 'Clique para bloquear' : 'Clique para autorizar'}
                     >
                       <div
                         className={`w-3.5 h-3.5 rounded-full bg-white transition-transform absolute top-0.5 ${
